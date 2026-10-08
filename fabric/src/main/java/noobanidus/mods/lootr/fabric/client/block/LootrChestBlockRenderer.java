@@ -29,10 +29,6 @@ public class LootrChestBlockRenderer<T extends LootrChestBlockEntity & ILootrBlo
   public static final Material MATERIAL2 = new Material(Sheets.CHEST_SHEET, LootrAPI.rl("chest_opened"));
   public static final Material MATERIAL3 = new Material(Sheets.CHEST_SHEET, LootrAPI.rl("chest_trapped"));
   public static final Material MATERIAL4 = new Material(Sheets.CHEST_SHEET, LootrAPI.rl("chest_trapped_opened"));
-  public static final Material OLD_MATERIAL = new Material(Sheets.CHEST_SHEET, LootrAPI.rl("old_chest"));
-  public static final Material OLD_MATERIAL2 = new Material(Sheets.CHEST_SHEET, LootrAPI.rl("old_chest_opened"));
-  public static final Material OLD_MATERIAL3 = new Material(Sheets.CHEST_SHEET, LootrAPI.rl("old_chest_trapped"));
-  public static final Material OLD_MATERIAL4 = new Material(Sheets.CHEST_SHEET, LootrAPI.rl("old_chest_trapped_opened"));
   private final ModelPart lid;
   private final ModelPart bottom;
   private final ModelPart lock;
@@ -78,18 +74,12 @@ public class LootrChestBlockRenderer<T extends LootrChestBlockEntity & ILootrBlo
       return Sheets.chooseMaterial(blockEntity, ChestType.SINGLE, false);
     }
     if (Minecraft.getInstance().player == null) {
-      return LootrAPI.isOldTextures() ? OLD_MATERIAL2 : MATERIAL2;
+      return MATERIAL2;
     }
     boolean trapped = blockEntity.getType().builtInRegistryHolder().is(LootrTags.BlockEntity.TRAPPED);
     if (blockEntity.hasClientOpened(Minecraft.getInstance().player)) {
-      if (LootrAPI.isOldTextures()) {
-        return trapped ? OLD_MATERIAL4 : OLD_MATERIAL2;
-      }
       return trapped ? MATERIAL4 : MATERIAL2;
     } else {
-      if (LootrAPI.isOldTextures()) {
-        return trapped ? OLD_MATERIAL3 : OLD_MATERIAL;
-      }
       return trapped ? MATERIAL3 : MATERIAL;
     }
   }

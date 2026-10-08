@@ -24,8 +24,6 @@ import java.util.UUID;
 public class LootrShulkerBlockRenderer implements BlockEntityRenderer<LootrShulkerBlockEntity> {
   public static final Material MATERIAL = new Material(Sheets.SHULKER_SHEET, LootrAPI.rl("shulker"));
   public static final Material MATERIAL2 = new Material(Sheets.SHULKER_SHEET, LootrAPI.rl("shulker_opened"));
-  public static final Material MATERIAL3 = new Material(Sheets.SHULKER_SHEET, LootrAPI.rl("old_shulker"));
-  public static final Material MATERIAL4 = new Material(Sheets.SHULKER_SHEET, LootrAPI.rl("old_shulker_opened"));
   private final ShulkerModel<?> model;
   private UUID playerId;
 
@@ -41,9 +39,9 @@ public class LootrShulkerBlockRenderer implements BlockEntityRenderer<LootrShulk
       return MATERIAL2;
     }
     if (!blockEntity.hasClientOpened(Minecraft.getInstance().player)) {
-      return LootrAPI.isOldTextures() ? MATERIAL3 : MATERIAL;
+      return MATERIAL;
     } else {
-      return LootrAPI.isOldTextures() ? MATERIAL4 : MATERIAL2;
+      return MATERIAL2;
     }
   }
 

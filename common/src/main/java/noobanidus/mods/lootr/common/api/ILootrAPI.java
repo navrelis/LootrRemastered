@@ -139,12 +139,16 @@ public interface ILootrAPI {
 
   ClientTextureType getTextureType();
 
+  // Kept for API compatibility: the "new textures" option was removed, this is now true unless vanilla textures are selected.
+  @Deprecated
   default boolean isNewTextures() {
     return getTextureType() == ClientTextureType.NEW;
   }
 
+  // Kept for API compatibility: the old texture set was removed, so this is always false.
+  @Deprecated
   default boolean isOldTextures() {
-    return getTextureType() == ClientTextureType.OLD;
+    return false;
   }
 
   default boolean isVanillaTextures() {

@@ -307,9 +307,6 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     return get().client.vanilla_textures;
   }
 
-  public static boolean isNewTextures() {
-    return get().client.new_textures;
-  }
 
   public static SyncedConfig getConfigForSync () {
     return get().configSync();
@@ -422,7 +419,6 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
 
   public static class Client {
     public boolean vanilla_textures = false;
-    public boolean new_textures = true;
     public boolean unopened_particles = true;
     public boolean refresh_particles = true;
     public boolean decay_particles = true;

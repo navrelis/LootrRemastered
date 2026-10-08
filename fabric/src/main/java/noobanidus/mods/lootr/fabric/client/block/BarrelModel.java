@@ -32,22 +32,18 @@ public class BarrelModel implements UnbakedModel {
   private final UnbakedModel opened;
   private final UnbakedModel unopened;
   private final UnbakedModel vanilla;
-  private final UnbakedModel old_opened;
-  private final UnbakedModel old_unopened;
   private Collection<ResourceLocation> dependencies = null;
 
-  public BarrelModel(UnbakedModel opened, UnbakedModel unopened, UnbakedModel vanilla, UnbakedModel old_opened, UnbakedModel old_unopened) {
+  public BarrelModel(UnbakedModel opened, UnbakedModel unopened, UnbakedModel vanilla) {
     this.opened = opened;
     this.unopened = unopened;
     this.vanilla = vanilla;
-    this.old_opened = old_opened;
-    this.old_unopened = old_unopened;
   }
 
   @Override
   public Collection<ResourceLocation> getDependencies() {
     if (dependencies == null) {
-      this.dependencies = Streams.concat(opened.getDependencies().stream(), unopened.getDependencies().stream(), vanilla.getDependencies().stream(), old_opened.getDependencies().stream(), old_unopened.getDependencies().stream()).collect(Collectors.toSet());
+      this.dependencies = Streams.concat(opened.getDependencies().stream(), unopened.getDependencies().stream(), vanilla.getDependencies().stream()).collect(Collectors.toSet());
     }
     return dependencies;
   }
@@ -57,29 +53,24 @@ public class BarrelModel implements UnbakedModel {
     this.opened.resolveParents(function);
     this.unopened.resolveParents(function);
     this.vanilla.resolveParents(function);
-    this.old_opened.resolveParents(function);
-    this.old_unopened.resolveParents(function);
+
   }
 
   @Nullable
   @Override
   public BakedModel bake(ModelBaker modelBakery, Function<Material, TextureAtlasSprite> spriteGetter, ModelState transform) {
-    return new BakedBarrelModel(opened.bake(modelBakery, spriteGetter, transform), unopened.bake(modelBakery, spriteGetter, transform), vanilla.bake(modelBakery, spriteGetter, transform), old_opened.bake(modelBakery, spriteGetter, transform), old_unopened.bake(modelBakery, spriteGetter, transform));
+    return new BakedBarrelModel(opened.bake(modelBakery, spriteGetter, transform), unopened.bake(modelBakery, spriteGetter, transform), vanilla.bake(modelBakery, spriteGetter, transform));
   }
 
   public static class BakedBarrelModel implements BakedModel, FabricBakedModel {
     private final BakedModel opened;
     private final BakedModel unopened;
     private final BakedModel vanilla;
-    private final BakedModel old_opened;
-    private final BakedModel old_unopened;
 
-    public BakedBarrelModel(BakedModel opened, BakedModel unopened, BakedModel vanilla, BakedModel old_opened, BakedModel old_unopened) {
+    public BakedBarrelModel(BakedModel opened, BakedModel unopened, BakedModel vanilla) {
       this.opened = opened;
       this.unopened = unopened;
       this.vanilla = vanilla;
-      this.old_opened = old_opened;
-      this.old_unopened = old_unopened;
     }
 
     @Override
@@ -90,11 +81,11 @@ public class BarrelModel implements UnbakedModel {
     @Override
     public void emitBlockQuads(BlockAndTintGetter blockView, BlockState state, BlockPos pos, Supplier<RandomSource> randomSupplier, RenderContext context) {
       Object data = blockView.getBlockEntityRenderData(pos);
-      BakedModel model = LootrAPI.isOldTextures() ? old_unopened : unopened;
+      BakedModel model = unopened;
       if (LootrAPI.isVanillaTextures()) {
         model = vanilla;
       } else if (data == Boolean.TRUE) {
-        model = LootrAPI.isOldTextures() ? old_opened : opened;
+        model = opened;
       }
 
       if (model != null) {
@@ -124,10 +115,8 @@ public class BarrelModel implements UnbakedModel {
     public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand) {
       if (LootrAPI.isVanillaTextures()) {
         return vanilla.getQuads(state, side, rand);
-      } else if (LootrAPI.isNewTextures()) {
-        return unopened.getQuads(state, side, rand);
       } else {
-        return old_unopened.getQuads(state, side, rand);
+        return unopened.getQuads(state, side, rand);
       }
     }
 

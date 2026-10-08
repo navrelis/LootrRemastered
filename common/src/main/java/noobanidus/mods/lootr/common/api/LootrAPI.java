@@ -177,10 +177,14 @@ public class LootrAPI {
     return INSTANCE.getTextureType();
   }
 
+  // Kept for API compatibility: the old texture set was removed, so this is always false.
+  @Deprecated
   public static boolean isOldTextures() {
     return INSTANCE.isOldTextures();
   }
 
+  // Kept for API compatibility: the "new textures" option was removed, this is now true unless vanilla textures are selected.
+  @Deprecated
   public static boolean isNewTextures() {
     return INSTANCE.isNewTextures();
   }

@@ -258,7 +258,10 @@ public final class IntegratedLootSnapshot {
   private record OrderedRuleFile(ResourceLocation id, RuleFile file) {
   }
 
-  private static boolean isEligible(LootContextParamSet type) {
+  /**
+   * @return true if loot tables of this type can be extended: chest, vault and untyped tables.
+   */
+  public static boolean isEligible(LootContextParamSet type) {
     return type == LootContextParamSets.CHEST || type == LootContextParamSets.VAULT || type == LootTable.DEFAULT_PARAM_SET;
   }
 

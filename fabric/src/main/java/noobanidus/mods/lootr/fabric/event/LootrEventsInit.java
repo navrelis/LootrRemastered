@@ -31,6 +31,7 @@ import noobanidus.mods.lootr.common.data.DataStorage;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLoot;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLootDefinitions;
 import noobanidus.mods.lootr.common.itemban.ItemBans;
+import noobanidus.mods.lootr.common.verify.LootVerifier;
 import noobanidus.mods.lootr.fabric.config.ConfigManager;
 import noobanidus.mods.lootr.fabric.network.to_client.PacketSyncConfig;
 
@@ -54,6 +55,10 @@ public class LootrEventsInit {
       BlockEntityTicker.clear();
       IntegratedLoot.onServerStopped();
     });
+
+    // Loot table verification: the run requested by -Dlootr.verify, and no run outlives its server.
+    ServerLifecycleEvents.SERVER_STARTED.register(LootVerifier::onServerStarted);
+    ServerLifecycleEvents.SERVER_STOPPING.register(LootVerifier::onServerStopping);
 
     ServerTickEvents.END_SERVER_TICK.register(BlockEntityTicker::onServerTick);
 

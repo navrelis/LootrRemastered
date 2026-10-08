@@ -3,6 +3,7 @@ package noobanidus.mods.lootr.common.api;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.packs.PackResources;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.vehicle.AbstractMinecartContainer;
@@ -15,6 +16,7 @@ import noobanidus.mods.lootr.common.api.client.ContainerStatus;
 import noobanidus.mods.lootr.common.api.data.blockentity.ILootrBlockEntity;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrCart;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrEntity;
+import noobanidus.mods.lootr.common.verify.PackOrigin;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
@@ -115,6 +117,25 @@ public interface IPlatformAPI {
   // The directory the configuration files of all mods live in; null if the platform does not tell.
   @Nullable
   default Path getConfigDirectory() {
+    return null;
+  }
+
+  // The directory the game runs in (the one that holds `logs`); null if the platform does not tell.
+  @Nullable
+  default Path getGameDirectory() {
+    return null;
+  }
+
+  // The mod that provides the resource or data pack with this id; null if it is not a mod's pack or the platform
+  // does not tell. The pack object is passed along where the caller has it.
+  @Nullable
+  default PackOrigin describePack(String packId, @Nullable PackResources pack) {
+    return null;
+  }
+
+  // The loaded mod with this id; null if there is none or the platform does not tell.
+  @Nullable
+  default PackOrigin describeMod(String modId) {
     return null;
   }
 }

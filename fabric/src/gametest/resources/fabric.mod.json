@@ -12,7 +12,8 @@
       "noobanidus.mods.lootr.gametest.LootrDefectFixTests",
       "noobanidus.mods.lootr.gametest.LootrItemBanTests",
       "noobanidus.mods.lootr.gametest.LootrIntegratedLootTests",
-      "noobanidus.mods.lootr.gametest.LootrCoreTests"
+      "noobanidus.mods.lootr.gametest.LootrCoreTests",
+      "noobanidus.mods.lootr.gametest.LootrVerifyTests"
     ]
   },
   "depends": {

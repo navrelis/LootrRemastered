@@ -76,6 +76,7 @@ import noobanidus.mods.lootr.common.integratedloot.IntegratedLootCommand;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinBaseContainerBlockEntity;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinChunkMap;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinMinecraftServer;
+import noobanidus.mods.lootr.common.verify.VerifyCommand;
 import org.apache.commons.lang3.NotImplementedException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -681,6 +682,7 @@ public class CommandLootr {
           return 1;
         }))));
     builder.then(IntegratedLootCommand.build());
+    builder.then(VerifyCommand.build());
     return builder;
   }
 

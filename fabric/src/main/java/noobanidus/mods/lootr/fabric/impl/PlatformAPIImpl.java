@@ -2,11 +2,14 @@ package noobanidus.mods.lootr.fabric.impl;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.fabric.api.resource.ModResourcePack;
 import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.packs.PackResources;
 import net.minecraft.world.LockCode;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
@@ -20,8 +23,10 @@ import noobanidus.mods.lootr.common.api.data.entity.ILootrEntity;
 import noobanidus.mods.lootr.common.client.ClientHooks;
 import noobanidus.mods.lootr.common.impl.DefaultPlatformAPIImpl;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinBaseContainerBlockEntity;
+import noobanidus.mods.lootr.common.verify.PackOrigin;
 import noobanidus.mods.lootr.fabric.network.to_client.*;
 import noobanidus.mods.lootr.fabric.network.to_server.PacketRequestUpdate;
+import org.jetbrains.annotations.Nullable;
 
 import java.nio.file.Path;
 
@@ -134,5 +139,35 @@ public class PlatformAPIImpl extends DefaultPlatformAPIImpl implements IPlatform
   @Override
   public Path getConfigDirectory() {
     return FabricLoader.getInstance().getConfigDir();
+  }
+
+  @Override
+  public Path getGameDirectory() {
+    return FabricLoader.getInstance().getGameDir();
+  }
+
+  @Override
+  @Nullable
+  public PackOrigin describePack(String packId, @Nullable PackResources pack) {
+    if (pack instanceof ModResourcePack modPack) {
+      return origin(modPack.getFabricModMetadata());
+    }
+    if (packId == null) {
+      return null;
+    }
+    // Fabric API names a mod's pack after the mod and a built-in pack of a mod "<mod id>:<name>"; vanilla's own
+    // pack is "vanilla". A mod pack with overlays is wrapped by vanilla and is no ModResourcePack any more.
+    int colon = packId.indexOf(':');
+    return describeMod("vanilla".equals(packId) ? "minecraft" : colon == -1 ? packId : packId.substring(0, colon));
+  }
+
+  @Override
+  @Nullable
+  public PackOrigin describeMod(String modId) {
+    return FabricLoader.getInstance().getModContainer(modId).map(container -> origin(container.getMetadata())).orElse(null);
+  }
+
+  private static PackOrigin origin(ModMetadata metadata) {
+    return PackOrigin.mod(metadata.getId(), metadata.getName(), metadata.getVersion().getFriendlyString());
   }
 }

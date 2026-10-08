@@ -2,6 +2,7 @@ package noobanidus.mods.lootr.common.api;
 
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.packs.PackResources;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.vehicle.AbstractMinecartContainer;
@@ -14,6 +15,7 @@ import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
 import noobanidus.mods.lootr.common.api.data.blockentity.ILootrBlockEntity;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrCart;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrEntity;
+import noobanidus.mods.lootr.common.verify.PackOrigin;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.file.Path;
@@ -140,5 +142,23 @@ public class PlatformAPI {
   public static Path getConfigDirectory() {
     IPlatformAPI instance = INSTANCE;
     return instance == null ? null : instance.getConfigDirectory();
+  }
+
+  @Nullable
+  public static Path getGameDirectory() {
+    IPlatformAPI instance = INSTANCE;
+    return instance == null ? null : instance.getGameDirectory();
+  }
+
+  @Nullable
+  public static PackOrigin describePack(String packId, @Nullable PackResources pack) {
+    IPlatformAPI instance = INSTANCE;
+    return instance == null ? null : instance.describePack(packId, pack);
+  }
+
+  @Nullable
+  public static PackOrigin describeMod(String modId) {
+    IPlatformAPI instance = INSTANCE;
+    return instance == null ? null : instance.describeMod(modId);
   }
 }

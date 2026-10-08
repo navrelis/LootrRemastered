@@ -247,11 +247,36 @@ public final class IntegratedLoot {
    * @return true if the map must not be created because a source table is being rolled on this thread.
    */
   public static boolean suppressMapCreation() {
-    if (active == null || !THREAD_STATE.get().skipMaps) {
+    ThreadState state = THREAD_STATE.get();
+    if (state.forceSkipMaps) {
+      state.forcedSkips++;
+      return true;
+    }
+    if (active == null || !state.skipMaps) {
       return false;
     }
     SUPPRESSED_MAPS.incrementAndGet();
     return true;
+  }
+
+  /**
+   * Runs the action with explorer map creation switched off on the calling thread, whether or not any loot table
+   * is extended. Meant for diagnostics that roll many loot tables; maps skipped here do not count in
+   * {@link #stats()}.
+   *
+   * @return how many maps were not created while the action ran.
+   */
+  public static int withoutMapCreation(Runnable action) {
+    ThreadState state = THREAD_STATE.get();
+    boolean wasForced = state.forceSkipMaps;
+    int before = state.forcedSkips;
+    state.forceSkipMaps = true;
+    try {
+      action.run();
+    } finally {
+      state.forceSkipMaps = wasForced;
+    }
+    return state.forcedSkips - before;
   }
 
   // ----- engine -----
@@ -417,5 +442,8 @@ public final class IntegratedLoot {
   private static final class ThreadState {
     private boolean rolling = false;
     private boolean skipMaps = false;
+    // Set only by withoutMapCreation.
+    private boolean forceSkipMaps = false;
+    private int forcedSkips = 0;
   }
 }

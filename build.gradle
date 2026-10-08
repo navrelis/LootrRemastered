@@ -1,7 +1,5 @@
 plugins {
     id "idea"
-    id "maven-publish"
-    id "me.modmuss50.mod-publish-plugin" version "2.1.1" apply false
     id "net.neoforged.moddev" version "2.0.80" apply false
     id("fabric-loom") version("1.14.7") apply(false)
     id("net.fabricmc.fabric-loom-companion") version("1.14.7")
@@ -17,16 +15,7 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
-        exclusiveContent {
-            forRepository {
-                maven {
-                    url = "https://www.cursemaven.com"
-                }
-            }
-            filter {
-                includeGroupAndSubgroups("curse.maven")
-            }
-        }
+        // maven.modrinth:jade (fabric + common)
         exclusiveContent {
             forRepository {
                 maven {
@@ -37,27 +26,7 @@ allprojects {
                 includeGroupAndSubgroups("maven.modrinth")
             }
         }
-        exclusiveContent {
-            forRepository {
-                maven {
-                    url = "https://maven.blamejared.com"
-                }
-            }
-            filter {
-                includeGroupAndSubgroups("mezz.jei")
-            }
-        }
-        exclusiveContent {
-            forRepository {
-                maven {
-                    name = "TerraformersMC"
-                    url = "https://maven.terraformersmc.com/"
-                }
-            }
-            filter {
-                includeGroupByRegex("dev\\.emi.*")
-            }
-        }
+        // me.shedaniel.cloth:cloth-config-fabric
         exclusiveContent {
             forRepository {
                 maven {
@@ -69,6 +38,7 @@ allprojects {
                 includeGroupAndSubgroups("me.shedaniel")
             }
         }
+        // dev.thomasglasser.sherdsapi:sherdsapi-*
         exclusiveContent {
             forRepository {
                 maven {
@@ -78,6 +48,7 @@ allprojects {
             }
             filter { includeGroupAndSubgroups "dev.thomasglasser.sherdsapi" }
         }
+        // dev.thomasglasser.tommylib:tommylib-fabric (transitive dependency of sherdsapi-fabric)
         exclusiveContent {
             forRepository {
                 maven {
@@ -88,21 +59,15 @@ allprojects {
             filter { includeGroupAndSubgroups "dev.thomasglasser.tommylib" }
         }
     }
-
-    tasks.register('buildAndRelease') {
-        dependsOn(tasks.build, tasks.publish)
-    }
 }
 
 subprojects {
     apply plugin: "java-library"
-    apply plugin: "maven-publish"
-    apply plugin: "me.modmuss50.mod-publish-plugin"
     project.group = rootProject.group
     project.version = rootProject.version
 
     base {
-        archivesName.set("${rootProject.mod_id}-${name}")
+        archivesName.set("lootr-remastered-${name}")
     }
 
     dependencies {
@@ -127,12 +92,11 @@ subprojects {
                 "homepage_url"         : project.homepage_url,
 
                 "minecraft_version"    : project.minecraft_version,
-                "neoforge_version"     : project.neoforge_version,
                 "fabric_loader_version": project.fabric_loader_version,
                 "java_version"         : "${javaVersion}",
         ]
 
-        filesMatching(['pack.mcmeta', '*.mod.json', 'META-INF/neoforge.mods.toml']) {
+        filesMatching(['pack.mcmeta', '*.mod.json']) {
             expand expandProps
         }
         inputs.properties(expandProps)
@@ -157,71 +121,5 @@ subprojects {
 
     tasks.withType(JavaCompile).configureEach {
         options.release.set(javaVersion)
-    }
-
-    publishing {
-        tasks.publish.dependsOn build
-
-        publications {
-            "${project.name}"(MavenPublication) {
-                artifactId = "${rootProject.mod_id}-${name}"
-                artifact jar
-                artifact project.sourcesJar {
-                    archiveClassifier.set('sources')
-                }
-
-                pom {
-                    name = 'Lootr'
-                    description = 'Friendly loot for everyone.'
-                    url = 'https://github.com/LootrMinecraft/Lootr'
-
-                    scm {
-                        connection = 'git:https://github.com/LootrMinecraft/Lootr.git'
-                        developerConnection = 'git:https://github.com/LootrMinecraft/Lootr.git'
-                        url = 'https://github.com/LootrMinecraft/Lootr'
-                    }
-
-                    licenses {
-                        license {
-                            name = 'MIT License'
-                            url = 'https://opensource.org/licenses/MIT'
-                        }
-                    }
-
-                    developers {
-                        developer {
-                            id = 'noobanidus'
-                            name = 'Noobanidus'
-                            email = 'noobanidus+spam@gmail.com'
-                        }
-                    }
-                }
-            }
-        }
-
-        repositories {
-            maven {
-                url = "file:///" + System.getenv("local_maven")
-            }
-        }
-    }
-
-    tasks.publishMods.mustRunAfter tasks.publish
-    tasks.buildAndRelease.dependsOn(tasks.publish).dependsOn(tasks.publishMods)
-}
-
-tasks.register("tagVersion") {
-    doLast {
-        def utils = project.objects.newInstance(ExecUtils)
-        def tagName = "mdg-${minecraft_version}-${mod_version}"
-
-        def existing = utils.getExecOutput(["git", "tag", "--list", tagName])
-        if (existing == tagName) {
-            println "Tag $tagName already exists. Skipping."
-            return
-        }
-
-        println "Creating git tag $tagName"
-        utils.getExecOutput(["git", "tag", tagName])
     }
 }

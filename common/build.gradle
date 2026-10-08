@@ -54,17 +54,7 @@ neoForge {
     validateAccessTransformers.set(true)
 }
 
-def generatedResources = file("src/generated/resources")
-
-sourceSets {
-    main {
-        resources.srcDir(generatedResources)
-    }
-}
-
 tasks.named("processResources") {
-    exclude(".cache/**")
-
     from("../datapacks") {
         include("lootr_no_advancements/**")
         include("lootr_no_suspicious_blocks/**")
@@ -73,5 +63,3 @@ tasks.named("processResources") {
 }
 
 tasks.build.mustRunAfter tasks.clean
-tasks.publish.mustRunAfter tasks.build
-tasks.buildAndRelease.dependsOn(tasks.clean, tasks.build, tasks.publish)

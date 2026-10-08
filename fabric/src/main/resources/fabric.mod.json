@@ -2,20 +2,23 @@
   "schemaVersion": 1,
   "id": "lootr",
   "version": "${version}",
-  "name": "Lootr",
-  "description": "A mod that makes it so nobody misses out on Loot!",
+  "name": "Lootr Remastered",
+  "description": "${mod_description}",
   "authors": [
-    "Noobanidus",
-    "ZestyBlaze",
-    "embeddedt"
+    "navrelis"
+  ],
+  "contributors": [
+    "Noobanidus (original Lootr)",
+    "ZestyBlaze (original Lootr)",
+    "embeddedt (original Lootr)"
   ],
   "accessWidener": "lootr.accesswidener",
   "contact": {
-    "homepage": "https://www.curseforge.com/minecraft/mc-mods/lootr-fabric",
-    "sources": "https://github.com/noobanidus/Lootr/tree/fabric-1.19.4",
-    "issues": "https://github.com/noobanidus/Lootr/issues"
+    "homepage": "https://github.com/navrelis/LootrRemastered",
+    "sources": "https://github.com/navrelis/LootrRemastered",
+    "issues": "https://github.com/navrelis/LootrRemastered/issues"
   },
-  "license": "MIT License",
+  "license": "MIT",
   "icon": "icon.png",
   "environment": "*",
   "entrypoints": {

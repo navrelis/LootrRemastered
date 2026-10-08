@@ -58,86 +58,6 @@ dependencies {
     implementation("io.github.llamalad7:mixinextras-fabric:${rootProject.mixin_extras_version}")
 }
 
-publishMods {
-    apply from: "../gradle/property_helper.gradle"
-
-    file = tasks.remapJar.archiveFile
-    modLoaders.add("fabric")
-
-    var env = System.getenv()
-
-    def utils = project.objects.newInstance(ExecUtils)
-
-    def gitRepo = utils.getExecOutput(['git', 'remote', 'get-url', 'origin'])
-    def gitCommit = utils.getExecOutput(['git', 'log', '-n', '1', '--pretty=tformat:%h'])
-    def gitPrevCommit = project.findProperty("git_previous_commit") ?: env["GIT_PREVIOUS_COMMIT"]
-
-    var changelogText = ""
-
-    if (gitCommit && gitPrevCommit) {
-        changelogText += utils.getExecOutput(['git', 'log', "--pretty=tformat:- %s [(%h)](${gitRepo}/commit/%h)", '' + gitPrevCommit + '..' + gitCommit])
-    }
-
-    def uploadDependencies = [
-            "fabric-api": true,
-            "cloth-config": true
-    ]
-
-    if (project.hasProperty('curseforge_id_fabric')) {
-        curseforge('curseforgeFabric') {
-
-            projectSlug = "lootr-fabric"
-            type = STABLE
-            displayName = "lootr-fabric-${rootProject.minecraft_version}-${rootProject.mod_version}"
-            accessToken = project.findProperty("curse_auth")
-            projectId = project.findProperty('curseforge_id_fabric')
-            announcementTitle = "Lootr ${rootProject.minecraft_version}-${rootProject.mod_version} for Fabric on CurseForge"
-            minecraftVersions.add(project.minecraft_version)
-            changelog = changelogText
-            client = true
-            server = true
-
-            uploadDependencies.each { dep, required ->
-                if (required) {
-                    requires(dep)
-                } else {
-                    optional(dep)
-                }
-            }
-        }
-    }
-
-    if (project.hasProperty('modrinth_id_fabric')) {
-        modrinth('modrinthFabric') {
-            type = STABLE
-            displayName = "lootr-fabric-${rootProject.minecraft_version}-${rootProject.mod_version}"
-            accessToken = project.findProperty("modrinth_auth")
-            projectId = project.findProperty('modrinth_id_fabric')
-            announcementTitle = "Lootr ${rootProject.minecraft_version}-${rootProject.mod_version} for Fabric on Modrinth"
-            minecraftVersions.add(project.minecraft_version)
-            changelog = changelogText
-
-            dependencies {
-                uploadDependencies.each { dep, required ->
-                    if (required) {
-                        requires(dep)
-                    } else {
-                        optional(dep)
-                    }
-                }
-            }
-        }
-    }
-
-    if (project.hasProperty("curse_discord_webhook")) {
-        discord {
-            webhookUrl = project.findProperty("curse_discord_webhook")
-            username = "Lootr Update"
-            content = "A new version of Lootr has been released!\n\n${changelogText.take(500)}"
-        }
-    }
-}
-
 loom {
     mods {
         "${mod_id}" {
@@ -199,6 +119,9 @@ tasks.named("sourcesJar", Jar) {
 }
 
 processResources {
+    // The access transformer is only used to compile :common against vanilla; Fabric uses the access widener.
+    exclude("META-INF/accesstransformer.cfg")
+
     from project.project(":common").sourceSets.main.resources
 
     from("../datapacks") {
@@ -210,6 +133,3 @@ processResources {
 }
 
 tasks.build.mustRunAfter tasks.clean
-tasks.publish.mustRunAfter tasks.build
-tasks.publishMods.mustRunAfter tasks.publish
-tasks.buildAndRelease.dependsOn(tasks.clean, tasks.build, tasks.publish, tasks.publishMods)

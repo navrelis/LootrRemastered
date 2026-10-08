@@ -29,3 +29,5 @@ Manual test checklist is collected in report.md during T13 and T15.
 Session handed over on 2026-10-08: see handoff.md (state, next steps in order, T06 specification, pack run notes).
 
 Added 2026-10-09: T16 (Opus, in progress): all loot rolls empty in the pack with the default config (conflict of the all-loot ban filter with CraftTweaker); fix the hook, reproduce in a game test, verification self-diagnosis, dispenser exclusions. Then T13 second server run (loot flows with default config, ban check on a path Item Obliterator does not cover, start-up verify mode, run without either jar set) and the client run.
+
+Session handed over a second time on 2026-10-09 01:15: see handoff.md. Open: T13 second server run (interrupted) and client run, documentation pass for T16, pack change decision, T15 final acceptance with report.md.

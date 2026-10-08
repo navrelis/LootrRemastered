@@ -16,9 +16,9 @@ Status values: open / in progress / in review / done. Model = planned subagent m
 | T09 | Original pixel art: all block, entity and GUI textures, trophy model, icon and logo (native canvas + 512 px nearest neighbour), authored by a script kept in the repository | Opus | T01 | No upstream texture, model art or logo left in repository head; native files kept; in-game screenshots | in review (art accepted from previews; in-game check in T13) |
 | T10 | Remove "old textures" pack and its options and renderer paths | Sonnet | T09 | No reference to old textures; build and tests green | done (client look checked in T13) |
 | T11 | Language files: keep English, new German, remove the other translations (default pending owner) | Sonnet | T04, T06 | All keys used in code exist in both files | done (in-game look on the manual checklist) |
-| T12 | Performance measurement: old 11 jars against new jar on a copy of the server pack (loot roll benchmark, tick time, start-up) | Opus | T05, T07 | Figures in report.md with method | in progress |
-| T13 | Pack run on a throwaway server copy and in the client: swap jars under the game lock, run `/lootr verify`, fix mod-side findings, fix pack data where right, list the rest per mod | Opus + lead | T05, T06, T08 | Verify report archived; pack launches; findings triaged | in progress |
-| T14 | Release material: README, CurseForge description and summary, credits, changelog, licence audit document | Sonnet | T09-T13 | Audit passes: no ARR content in head or jar, MIT notice kept | in progress |
+| T12 | Performance measurement: old 11 jars against new jar on a copy of the server pack (loot roll benchmark, tick time, start-up) | Opus | T05, T07 | Figures in report.md with method | done for the server side (figures in the server-run report); stack-count comparison needs a run without either jar set |
+| T13 | Pack run on a throwaway server copy and in the client: swap jars under the game lock, run `/lootr verify`, fix mod-side findings, fix pack data where right, list the rest per mod | Opus + lead | T05, T06, T08 | Verify report archived; pack launches; findings triaged | in progress: first server run done, blocker found (T16), second run and client run owed |
+| T14 | Release material: README, CurseForge description and summary, credits, changelog, licence audit document | Sonnet | T09-T13 | Audit passes: no ARR content in head or jar, MIT notice kept | done (two owner decisions remain: history, `.knowledge` in the public tree) |
 | T15 | Final acceptance: full build and tests, client proof with screenshots, manual checklist, report.md, shared log line, push | lead | all | Report delivered | open |
 
 Parallel: T09 (art, resources only) can run beside T03-T08. T05 runs beside T06. T07 runs beside T04 only if file ownership is disjoint (T07 owns saved data, ticking and queue classes; T04 owns new packages plus loot mixins).
@@ -27,3 +27,5 @@ Manual test checklist is collected in report.md during T13 and T15.
 
 
 Session handed over on 2026-10-08: see handoff.md (state, next steps in order, T06 specification, pack run notes).
+
+Added 2026-10-09: T16 (Opus, in progress): all loot rolls empty in the pack with the default config (conflict of the all-loot ban filter with CraftTweaker); fix the hook, reproduce in a game test, verification self-diagnosis, dispenser exclusions. Then T13 second server run (loot flows with default config, ban check on a path Item Obliterator does not cover, start-up verify mode, run without either jar set) and the client run.

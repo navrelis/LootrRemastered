@@ -87,3 +87,9 @@ For Minecraft 1.21.4, you can use (for example): `1.21.4-1.12.36.87`.
 
 Please check the available versions for the latest version of Lootr for your Minecraft version.
 
+
+# Tests
+
+The Fabric module contains in-game tests (Fabric Game Test API) in `fabric/src/gametest`. They run on a headless dedicated server with the mod loaded and are not part of the release jar or of `:fabric:build`.
+
+Run them with `.\gradlew.bat :fabric:runGametest` (`./gradlew :fabric:runGametest` on Linux/macOS). The task exits with a non-zero code if any test fails; the JUnit report is written to `fabric/build/gametest/junit.xml`.

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "lootr_gametest",
+  "version": "${version}",
+  "name": "Lootr Remastered Game Tests",
+  "description": "In-game tests for Lootr Remastered. Development only; not part of the release.",
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": [
+      "noobanidus.mods.lootr.gametest.LootrSmokeTests"
+    ]
+  },
+  "depends": {
+    "lootr": "*"
+  }
+}

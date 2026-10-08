@@ -27,6 +27,14 @@ repositories {
 }
 
 
+sourceSets {
+    // In-game tests (Fabric Game Test API). Not part of the release jar; they run only through :fabric:runGametest.
+    gametest {
+        compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+        runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings(loom.layered {
@@ -64,6 +72,9 @@ loom {
             // Tell Loom about each source set used by your mod here. This ensures that your mod's classes are properly transformed by Loader.
             sourceSet sourceSets.main
             sourceSet project.project(":common").sourceSets.main
+        }
+        "lootr_gametest" {
+            sourceSet sourceSets.gametest
         }
     }
 
@@ -103,6 +114,17 @@ loom {
             server()
             setConfigName("Fabric Server")
         }
+
+        gametest {
+            server()
+            setConfigName("Fabric Game Test")
+            source sourceSets.gametest
+            runDir("build/gametest/run")
+            ideConfigGenerated(false)
+
+            vmArg("-Dfabric-api.gametest")
+            vmArg("-Dfabric-api.gametest.report-file=${layout.buildDirectory.get().asFile}/gametest/junit.xml")
+        }
     }
 }
 
@@ -129,6 +151,15 @@ processResources {
         include("lootr_no_advancements/**")
         include("lootr_no_suspicious_blocks/**")
         exclude("**/.cache/**")
+    }
+}
+
+tasks.named("processGametestResources", ProcessResources) {
+    filteringCharset = "UTF-8"
+    def gametestProps = ["version": project.version]
+    inputs.properties(gametestProps)
+    filesMatching("fabric.mod.json") {
+        expand gametestProps
     }
 }
 

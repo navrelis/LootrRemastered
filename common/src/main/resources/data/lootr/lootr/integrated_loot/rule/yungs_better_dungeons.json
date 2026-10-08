@@ -1,0 +1,9 @@
+{
+  "required_mods": ["betterdungeons"],
+  "entries": [
+    { "tables": ["betterdungeons:small_nether_dungeon/chests/*"], "pool": "lootr:nether", "rolls": 1 },
+    { "tables": ["betterdungeons:zombie_dungeon/chests/special"], "pool": "lootr:overworld_rare", "rolls": 1 },
+    { "tables": ["betterdungeons:small_dungeon/chests/loot_piles", "betterdungeons:spider_dungeon/chests/*"], "pool": "lootr:overworld_common", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["betterdungeons:*/chests/*"], "pool": "lootr:overworld_common", "rolls": 1 }
+  ]
+}

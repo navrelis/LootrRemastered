@@ -1,0 +1,9 @@
+{
+  "required_mods": ["takesapillage"],
+  "entries": [
+    { "tables": ["takesapillage:chests/bastille/church"], "exclude": true },
+    { "tables": ["takesapillage:chests/bastille/farm"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["takesapillage:chests/bastille/center"], "pool": "lootr:overworld_common", "rolls": 1 },
+    { "tables": ["takesapillage:chests/bastille/*"], "pool": "lootr:overworld_common", "rolls": { "min": 0, "max": 1 } }
+  ]
+}

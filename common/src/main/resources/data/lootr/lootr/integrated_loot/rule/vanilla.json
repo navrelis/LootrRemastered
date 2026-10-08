@@ -1,0 +1,51 @@
+{
+  "entries": [
+    { "tables": ["minecraft:chests/spawn_bonus_chest", "minecraft:chests/jungle_temple_dispenser"], "exclude": true },
+    { "tables": ["minecraft:chests/trial_chambers/reward_ominous"], "pool": "lootr:overworld_rare", "rolls": 2 },
+    { "tables": ["minecraft:chests/trial_chambers/reward"], "pool": "lootr:overworld_rare", "rolls": 1 },
+    { "tables": ["minecraft:chests/trial_chambers/reward_*"], "exclude": true },
+    {
+      "tables": [
+        "minecraft:chests/simple_dungeon",
+        "minecraft:chests/abandoned_mineshaft",
+        "minecraft:chests/desert_pyramid",
+        "minecraft:chests/jungle_temple",
+        "minecraft:chests/pillager_outpost",
+        "minecraft:chests/ruined_portal",
+        "minecraft:chests/trial_chambers/corridor",
+        "minecraft:chests/trial_chambers/entrance",
+        "minecraft:chests/trial_chambers/intersection"
+      ],
+      "pool": "lootr:overworld_common",
+      "rolls": 1
+    },
+    {
+      "tables": [
+        "minecraft:chests/igloo_chest",
+        "minecraft:chests/ancient_city_ice_box",
+        "minecraft:chests/trial_chambers/intersection_barrel",
+        "minecraft:chests/trial_chambers/supply"
+      ],
+      "pool": "lootr:overworld_common",
+      "rolls": { "min": 0, "max": 1 }
+    },
+    { "tables": ["minecraft:chests/woodland_mansion", "minecraft:chests/ancient_city"], "pool": "lootr:overworld_rare", "rolls": 2 },
+    { "tables": ["minecraft:chests/stronghold_corridor", "minecraft:chests/stronghold_crossing", "minecraft:chests/stronghold_library"], "pool": "lootr:overworld_rare", "rolls": 1 },
+    { "tables": ["minecraft:chests/bastion_treasure"], "pool": "lootr:nether", "rolls": 2 },
+    {
+      "tables": [
+        "minecraft:chests/nether_bridge",
+        "minecraft:chests/bastion_bridge",
+        "minecraft:chests/bastion_other",
+        "minecraft:chests/bastion_hoglin_stable"
+      ],
+      "pool": "lootr:nether",
+      "rolls": 1
+    },
+    { "tables": ["minecraft:chests/end_city_treasure"], "pool": "lootr:end", "rolls": 2 },
+    { "tables": ["minecraft:chests/buried_treasure", "minecraft:chests/shipwreck_treasure"], "pool": "lootr:ocean", "rolls": 2 },
+    { "tables": ["minecraft:chests/underwater_ruin_big"], "pool": "lootr:ocean", "rolls": 1 },
+    { "tables": ["minecraft:chests/shipwreck_supply", "minecraft:chests/shipwreck_map", "minecraft:chests/underwater_ruin_small"], "pool": "lootr:ocean", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["minecraft:chests/village/*"], "pool": "lootr:village", "rolls": 1 }
+  ]
+}

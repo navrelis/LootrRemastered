@@ -1,0 +1,11 @@
+{
+  "required_mods": ["medieval_buildings"],
+  "entries": [
+    { "tables": ["medieval_buildings:chests/ship_chests"], "exclude": true },
+    { "tables": ["medieval_buildings:chests/ship_barrel"], "pool": "lootr:ocean", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["medieval_buildings:chests/medium_shack_hay_bale", "medieval_buildings:chests/town_outside_chests"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["medieval_buildings:chests/medium_shack_house", "medieval_buildings:chests/tiny_shack"], "pool": "lootr:village", "rolls": 1 },
+    { "tables": ["medieval_buildings:chests/tower"], "pool": "lootr:overworld_rare", "rolls": 1 },
+    { "tables": ["medieval_buildings:chests/town_inside"], "pool": "lootr:overworld_common", "rolls": 1 }
+  ]
+}

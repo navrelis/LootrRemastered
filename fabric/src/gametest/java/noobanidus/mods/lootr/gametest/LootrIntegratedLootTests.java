@@ -35,6 +35,7 @@ import noobanidus.mods.lootr.common.api.registry.LootrRegistry;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLoot;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLootDefinitions;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLootDefinitions.FileKind;
+import noobanidus.mods.lootr.common.integratedloot.IntegratedLootDefinitions.FileProblem;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLootDefinitions.Rolls;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLootSettings;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLootSnapshot;
@@ -55,17 +56,21 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
 /**
  * Tests for integrated loot. The pools, rules and loot tables are in the test data pack
  * (`data/lootr_gametest/lootr/integrated_loot` and `data/lootr_gametest/loot_table/integrated`); every test table
- * yields fixed items, so the assertions are exact.
+ * yields fixed items, so the assertions are exact. The extra rule files for the namespace gate are in
+ * `data/lootr_gametest_ns/lootr/integrated_loot/rule`. The pools and rules that ship with the mod (namespace `lootr`)
+ * are loaded as well; the tests of the fixture data look at the namespace `lootr_gametest` only.
  * <br />
  * Settings and ban sources are global: a test changes them only inside one synchronous block on the server
  * thread and restores them in a `finally`. The runtime counters are compared as differences inside such a block.
@@ -76,6 +81,10 @@ public class LootrIntegratedLootTests implements FabricGameTest {
   private static final BlockPos CHEST_POS = new BlockPos(0, 1, 0);
   private static final int CONVERSION_TIMEOUT_TICKS = 200;
   private static final int SEEDS = 30;
+  // The namespace of the test data pack, of its extra rule files for the namespace gate, and of the files that ship with the mod.
+  private static final String FIXTURE_NAMESPACE = "lootr_gametest";
+  private static final String GATE_NAMESPACE = "lootr_gametest_ns";
+  private static final String BUILT_IN_NAMESPACE = "lootr";
 
   // What the test tables yield: targets A, the usual source B, C and D, the second-level source E.
   private static final Item A = Items.STICK;
@@ -203,8 +212,8 @@ public class LootrIntegratedLootTests implements FabricGameTest {
     IntegratedLootSnapshot snapshot = IntegratedLoot.snapshot();
     RuleFileInfo missing = ruleFile(snapshot, "requires_missing");
     helper.assertTrue(!missing.active(), "A rule file with a missing mod is active");
-    helper.assertTrue(missing.missingMods().equals(List.of("lootr_gametest_absent_mod")), "Expected exactly the absent mod as missing but got " + missing.missingMods());
-    helper.assertTrue(snapshot.inactiveRuleFiles().equals(List.of(missing)), "Expected exactly one inactive rule file but got " + snapshot.inactiveRuleFiles());
+    helper.assertTrue(missing.missingMods().equals(List.of("lootr_gametest_absent_mod")) && missing.missingNamespaces().isEmpty(), "Expected exactly the absent mod as missing but got " + missing);
+    helper.assertTrue(fixtureFiles(snapshot.inactiveRuleFiles()).equals(List.of(missing)), "Expected exactly one inactive rule file but got " + fixtureFiles(snapshot.inactiveRuleFiles()));
     helper.assertTrue(snapshot.decisionFor(key("target_required_missing")).isEmpty(), "An inactive rule file decided on a table");
     assertItems(helper, table(helper, "target_required_missing").getRandomItems(params(helper), 1L), "the table of the inactive rule file", A);
 
@@ -216,17 +225,124 @@ public class LootrIntegratedLootTests implements FabricGameTest {
     helper.succeed();
   }
 
+  // `required_namespaces`: a namespace without a loaded loot table makes the file inactive, a namespace with one does
+  // not; with both gates either unmet is enough.
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void requiredNamespacesDecideWhetherARuleFileIsActive(GameTestHelper helper) {
+    IntegratedLootSnapshot snapshot = IntegratedLoot.snapshot();
+    LootParams params = params(helper);
+    String absentMod = "lootr_gametest_absent_mod";
+    String absentNamespace = "lootr_gametest_absent_namespace";
+
+    for (String name : new String[]{"ns_present", "ns_both_met"}) {
+      RuleFileInfo file = ruleFile(snapshot, gateId(name));
+      helper.assertTrue(file.active() && file.missingMods().isEmpty() && file.missingNamespaces().isEmpty(), "The rule file " + name + " is inactive: " + file);
+      Decision decision = snapshot.decisionFor(key("target_" + name)).orElseThrow(() -> new GameTestAssertException("The active rule file " + name + " made no decision"));
+      helper.assertTrue(decision.active() && decision.ruleFile().equals(gateId(name)) && decision.entryIndex() == 0, "Unexpected decision " + decision);
+      helper.assertTrue(table(helper, "target_" + name).getRandomItems(params, 1L).size() == 2, "The table of the active rule file " + name + " was not extended");
+    }
+
+    record Unmet(String name, List<String> mods, List<String> namespaces) {
+    }
+    for (Unmet unmet : List.of(new Unmet("ns_missing", List.of(), List.of(absentNamespace)), new Unmet("ns_both_mod_unmet", List.of(absentMod), List.of()), new Unmet("ns_both_namespace_unmet", List.of(), List.of(absentNamespace)))) {
+      RuleFileInfo file = ruleFile(snapshot, gateId(unmet.name()));
+      helper.assertTrue(!file.active() && file.missingMods().equals(unmet.mods()) && file.missingNamespaces().equals(unmet.namespaces()), "Unexpected state of the rule file " + unmet.name() + ": " + file);
+      helper.assertTrue(snapshot.inactiveRuleFiles().contains(file) && !snapshot.activeRuleFiles().contains(file), "The rule file " + unmet.name() + " is not listed as inactive");
+      helper.assertTrue(snapshot.decisionFor(key("target_" + unmet.name())).isEmpty(), "An inactive rule file decided on a table");
+      assertItems(helper, table(helper, "target_" + unmet.name()).getRandomItems(params, 1L), "the table of the inactive rule file " + unmet.name(), A);
+    }
+    List<ResourceLocation> inactive = snapshot.inactiveRuleFiles().stream().map(RuleFileInfo::id).filter(id -> id.getNamespace().equals(GATE_NAMESPACE)).toList();
+    helper.assertTrue(inactive.equals(List.of(gateId("ns_both_mod_unmet"), gateId("ns_both_namespace_unmet"), gateId("ns_missing"))), "Unexpected inactive rule files of the namespace gate: " + inactive);
+    helper.succeed();
+  }
+
+  // `required_namespaces` is optional, a list of namespaces, and an invalid entry makes the whole file malformed.
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void requiredNamespacesAreParsedAndValidated(GameTestHelper helper) {
+    String entries = "\"entries\": [{\"tables\": [\"a:b\"], \"exclude\": true}]";
+    Map<ResourceLocation, JsonElement> rules = new HashMap<>();
+    rules.put(rl("x:valid"), JsonParser.parseString("{\"required_mods\": [\"m\"], \"required_namespaces\": [\"cataclysm\", \"my-mod_1.x\"], " + entries + "}"));
+    rules.put(rl("x:absent"), JsonParser.parseString("{" + entries + "}"));
+    rules.put(rl("x:empty_list"), JsonParser.parseString("{\"required_namespaces\": [], " + entries + "}"));
+    rules.put(rl("x:upper_case"), JsonParser.parseString("{\"required_namespaces\": [\"Cataclysm\"], " + entries + "}"));
+    rules.put(rl("x:space"), JsonParser.parseString("{\"required_namespaces\": [\"a b\"], " + entries + "}"));
+    rules.put(rl("x:colon"), JsonParser.parseString("{\"required_namespaces\": [\"a:b\"], " + entries + "}"));
+    rules.put(rl("x:empty_name"), JsonParser.parseString("{\"required_namespaces\": [\"\"], " + entries + "}"));
+    rules.put(rl("x:one_bad_of_two"), JsonParser.parseString("{\"required_namespaces\": [\"fine\", \"not fine\"], " + entries + "}"));
+    rules.put(rl("x:not_a_list"), JsonParser.parseString("{\"required_namespaces\": {\"a\": \"b\"}, " + entries + "}"));
+    IntegratedLootDefinitions parsed = IntegratedLootDefinitions.parse(Map.of(), rules);
+
+    helper.assertTrue(parsed.ruleFiles().keySet().equals(Set.of(rl("x:valid"), rl("x:absent"), rl("x:empty_list"))), "Unexpected intact rule files: " + parsed.ruleFiles().keySet());
+    helper.assertTrue(parsed.ruleFiles().get(rl("x:valid")).requiredNamespaces().equals(List.of("cataclysm", "my-mod_1.x")) && parsed.ruleFiles().get(rl("x:valid")).requiredMods().equals(List.of("m")), "The gates were not read: " + parsed.ruleFiles().get(rl("x:valid")));
+    helper.assertTrue(parsed.ruleFiles().get(rl("x:absent")).requiredNamespaces().isEmpty() && parsed.ruleFiles().get(rl("x:empty_list")).requiredNamespaces().isEmpty(), "A missing or empty list must mean no gate");
+    Set<ResourceLocation> malformed = new HashSet<>();
+    parsed.problems().forEach(problem -> {
+      helper.assertTrue(problem.kind() == FileKind.RULE && !problem.message().isBlank(), "Unexpected problem " + problem);
+      malformed.add(problem.id());
+    });
+    helper.assertTrue(parsed.problems().size() == 6 && malformed.equals(Set.of(rl("x:upper_case"), rl("x:space"), rl("x:colon"), rl("x:empty_name"), rl("x:one_bad_of_two"), rl("x:not_a_list"))), "Expected the six invalid files to be malformed but got " + parsed.problems());
+    helper.succeed();
+  }
+
+  // The pools and rule files that ship with the mod (namespace lootr). The test environment has vanilla and the test
+  // data only, so everything that needs another mod or namespace is inactive.
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void builtInPoolsAndRuleFilesAreLoadedAndWellFormed(GameTestHelper helper) {
+    IntegratedLootSnapshot snapshot = IntegratedLoot.snapshot();
+    Set<ResourceLocation> pools = snapshot.pools().stream().map(Pool::id).filter(id -> id.getNamespace().equals(BUILT_IN_NAMESPACE)).collect(Collectors.toSet());
+    helper.assertTrue(pools.equals(Set.of(builtIn("end"), builtIn("nether"), builtIn("ocean"), builtIn("overworld_common"), builtIn("overworld_rare"), builtIn("village"))), "Unexpected built-in pools: " + pools);
+    long ruleFiles = snapshot.ruleFiles().stream().filter(file -> file.id().getNamespace().equals(BUILT_IN_NAMESPACE)).count();
+    helper.assertTrue(ruleFiles == 51, "Expected 51 built-in rule files but got " + ruleFiles);
+
+    List<FileProblem> malformed = snapshot.malformedFiles().stream().filter(problem -> problem.id().getNamespace().equals(BUILT_IN_NAMESPACE)).toList();
+    helper.assertTrue(malformed.isEmpty(), "Built-in files are malformed: " + malformed);
+    List<ResourceLocation> unusable = snapshot.unusablePools().stream().filter(pool -> pool.getNamespace().equals(BUILT_IN_NAMESPACE)).toList();
+    helper.assertTrue(unusable.isEmpty(), "Built-in pools without an existing source: " + unusable);
+    List<DroppedSource> dropped = snapshot.droppedSources().stream().filter(source -> source.pool().getNamespace().equals(BUILT_IN_NAMESPACE)).toList();
+    helper.assertTrue(dropped.isEmpty(), "Sources of built-in pools that are not loaded: " + dropped);
+    helper.succeed();
+  }
+
+  // How the built-in rule files resolve against the vanilla loot tables.
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void builtInRuleFilesResolveAgainstVanilla(GameTestHelper helper) {
+    IntegratedLootSnapshot snapshot = IntegratedLoot.snapshot();
+    RuleFileInfo vanilla = ruleFile(snapshot, builtIn("vanilla"));
+    helper.assertTrue(vanilla.active(), "lootr:vanilla is inactive: " + vanilla);
+    List<UnmatchedPattern> unmatched = snapshot.unmatchedPatterns().stream().filter(pattern -> pattern.ruleFile().getNamespace().equals(BUILT_IN_NAMESPACE)).toList();
+    helper.assertTrue(unmatched.isEmpty(), "Built-in patterns match no loot table: " + unmatched);
+    List<IneligibleMatch> ineligible = snapshot.ineligibleMatches().stream().filter(match -> match.ruleFile().getNamespace().equals(BUILT_IN_NAMESPACE)).toList();
+    helper.assertTrue(ineligible.isEmpty(), "Built-in entries match tables of another type: " + ineligible);
+    List<Decision> unusable = snapshot.decisions().values().stream().filter(decision -> decision.ruleFile().getNamespace().equals(BUILT_IN_NAMESPACE) && !decision.exclusion() && !decision.active()).toList();
+    helper.assertTrue(unusable.isEmpty(), "Built-in entries without a usable pool: " + unusable);
+
+    Decision dungeon = snapshot.decisionFor(vanillaKey("chests/simple_dungeon")).orElseThrow(() -> new GameTestAssertException("No decision for minecraft:chests/simple_dungeon"));
+    helper.assertTrue(dungeon.active() && dungeon.poolId().equals(Optional.of(builtIn("overworld_common"))) && dungeon.ruleFile().equals(builtIn("vanilla")), "Unexpected decision " + dungeon);
+    Decision bonus = snapshot.decisionFor(vanillaKey("chests/spawn_bonus_chest")).orElseThrow(() -> new GameTestAssertException("No decision for minecraft:chests/spawn_bonus_chest"));
+    helper.assertTrue(bonus.exclusion() && !bonus.active() && bonus.ruleFile().equals(builtIn("vanilla")), "Unexpected decision " + bonus);
+
+    RuleFileInfo cataclysm = ruleFile(snapshot, builtIn("excluded_cataclysm"));
+    helper.assertTrue(!cataclysm.active() && cataclysm.missingMods().isEmpty() && cataclysm.missingNamespaces().equals(List.of("cataclysm")), "Unexpected state of lootr:excluded_cataclysm: " + cataclysm);
+    RuleFileInfo astral = ruleFile(snapshot, builtIn("excluded_astral_dimension"));
+    helper.assertTrue(!astral.active() && astral.missingMods().isEmpty() && astral.missingNamespaces().equals(List.of("astral_dimension")), "Unexpected state of lootr:excluded_astral_dimension: " + astral);
+    RuleFileInfo arise = ruleFile(snapshot, builtIn("dungeons_arise"));
+    helper.assertTrue(!arise.active() && arise.missingMods().equals(List.of("dungeons_arise")) && arise.missingNamespaces().isEmpty(), "Unexpected state of lootr:dungeons_arise: " + arise);
+    helper.succeed();
+  }
+
   // f. Malformed files are reported and skipped; everything else is untouched.
   @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
   public void malformedFilesAreReportedAndSkipped(GameTestHelper helper) {
     IntegratedLootSnapshot snapshot = IntegratedLoot.snapshot();
+    // The files that ship with the mod are checked in builtInPoolsAndRuleFilesAreLoadedAndWellFormed.
+    List<FileProblem> fixtureProblems = snapshot.malformedFiles().stream().filter(problem -> problem.id().getNamespace().equals(FIXTURE_NAMESPACE)).toList();
     Set<String> malformed = new HashSet<>();
-    snapshot.malformedFiles().forEach(problem -> {
+    fixtureProblems.forEach(problem -> {
       helper.assertTrue(!problem.message().isBlank(), "A malformed file was reported without a reason: " + problem);
       malformed.add(problem.kind().label() + " " + problem.id().getPath());
     });
     helper.assertTrue(malformed.equals(Set.of("pool malformed", "pool broken_syntax", "rule malformed", "rule malformed_entry", "rule malformed_pattern")), "Unexpected malformed files: " + malformed);
-    helper.assertTrue(snapshot.malformedFiles().size() == 5, "A malformed file was reported more than once");
+    helper.assertTrue(fixtureProblems.size() == 5, "A malformed file was reported more than once");
 
     helper.assertTrue(snapshot.pool(id("malformed")).isEmpty() && snapshot.pool(id("broken_syntax")).isEmpty(), "A malformed pool is in use");
     helper.assertTrue(snapshot.ruleFiles().stream().noneMatch(file -> file.id().getPath().startsWith("malformed")), "A malformed rule file is in use");
@@ -241,7 +357,7 @@ public class LootrIntegratedLootTests implements FabricGameTest {
   public void priorityFirstMatchExcludeAndGlobs(GameTestHelper helper) {
     IntegratedLootSnapshot snapshot = IntegratedLoot.snapshot();
     LootParams params = params(helper);
-    List<String> order = snapshot.ruleFiles().stream().map(file -> file.id().getPath()).toList();
+    List<String> order = fixtureFiles(snapshot.ruleFiles()).stream().map(file -> file.id().getPath()).toList();
     helper.assertTrue(order.equals(List.of("prio_high", "prio_low", "basic", "requires_lootr", "requires_missing", "globs")), "Rule files are not ordered by priority, then id: " + order);
 
     // Higher priority wins over the lower file's `prio/*`.
@@ -273,7 +389,7 @@ public class LootrIntegratedLootTests implements FabricGameTest {
     }
 
     // Diagnostics: patterns that fit no table (but not those that only lose against earlier entries).
-    List<UnmatchedPattern> unmatched = snapshot.unmatchedPatterns();
+    List<UnmatchedPattern> unmatched = snapshot.unmatchedPatterns().stream().filter(pattern -> pattern.ruleFile().getNamespace().equals(FIXTURE_NAMESPACE)).toList();
     helper.assertTrue(unmatched.equals(List.of(new UnmatchedPattern(id("basic"), 17, "lootr_gametest:integrated/does_not_exist"), new UnmatchedPattern(id("basic"), 17, "lootr_gametest:integrated/nothing/**"))), "Unexpected unmatched patterns: " + unmatched);
     helper.succeed();
   }
@@ -284,9 +400,12 @@ public class LootrIntegratedLootTests implements FabricGameTest {
   public void poolProblemsAreDiagnosedAndHarmless(GameTestHelper helper) {
     IntegratedLootSnapshot snapshot = IntegratedLoot.snapshot();
     LootParams params = params(helper);
-    helper.assertTrue(snapshot.unusablePools().equals(List.of(id("unusable"))), "Unexpected unusable pools: " + snapshot.unusablePools());
+    // The pools that ship with the mod are checked in builtInPoolsAndRuleFilesAreLoadedAndWellFormed.
+    List<ResourceLocation> unusable = snapshot.unusablePools().stream().filter(pool -> pool.getNamespace().equals(FIXTURE_NAMESPACE)).toList();
+    helper.assertTrue(unusable.equals(List.of(id("unusable"))), "Unexpected unusable pools: " + unusable);
+    List<DroppedSource> droppedList = snapshot.droppedSources().stream().filter(source -> source.pool().getNamespace().equals(FIXTURE_NAMESPACE)).toList();
     Set<DroppedSource> dropped = Set.of(new DroppedSource(id("dropped"), rl("lootr_gametest:integrated/no_such_table")), new DroppedSource(id("unusable"), rl("lootr_gametest:integrated/no_such_table")), new DroppedSource(id("unusable"), rl("lootr_gametest:integrated/another_missing_table")));
-    helper.assertTrue(new HashSet<>(snapshot.droppedSources()).equals(dropped) && snapshot.droppedSources().size() == 3, "Unexpected dropped sources: " + snapshot.droppedSources());
+    helper.assertTrue(new HashSet<>(droppedList).equals(dropped) && droppedList.size() == 3, "Unexpected dropped sources: " + droppedList);
 
     Pool pool = snapshot.pool(id("dropped")).orElseThrow(() -> new GameTestAssertException("The pool with one valid source is missing"));
     helper.assertTrue(pool.sources().size() == 1 && pool.sources().getFirst().table().equals(key("source_e")) && pool.sources().getFirst().weight() == 3 && pool.totalWeight() == 3, "Unexpected sources " + pool.sources());
@@ -301,7 +420,8 @@ public class LootrIntegratedLootTests implements FabricGameTest {
       assertItems(helper, table(helper, name).getRandomItems(params, 1L), name, A);
     }
     helper.assertTrue(snapshot.decisionFor(key("target_missing_pool")).orElseThrow().poolId().equals(Optional.of(id("no_such_pool"))), "The missing pool is not named");
-    helper.assertTrue(snapshot.extensionCount() == snapshot.decisions().values().stream().filter(Decision::active).count() && snapshot.exclusionCount() == 1, "The decision counts are off");
+    long fixtureExclusions = snapshot.decisions().values().stream().filter(decision -> decision.exclusion() && decision.ruleFile().getNamespace().equals(FIXTURE_NAMESPACE)).count();
+    helper.assertTrue(snapshot.extensionCount() == snapshot.decisions().values().stream().filter(Decision::active).count() && snapshot.exclusionCount() == snapshot.decisions().values().stream().filter(Decision::exclusion).count() && fixtureExclusions == 1, "The decision counts are off");
     helper.succeed();
   }
 
@@ -563,8 +683,8 @@ public class LootrIntegratedLootTests implements FabricGameTest {
       assertItems(helper, stacks(container), "the plain table (fill)", A);
     }
     assertItems(helper, table.getRandomItems(params), "the plain table", A);
-    // A vanilla chest table has no rule either (no pool or rule file ships with the mod).
-    helper.assertTrue(IntegratedLoot.snapshot().decisions().keySet().stream().allMatch(key -> key.location().getNamespace().equals("lootr_gametest")), "A table outside the test namespace has a decision");
+    // Outside the test namespace only the rule files that ship with the mod decide.
+    helper.assertTrue(IntegratedLoot.snapshot().decisions().values().stream().allMatch(decision -> decision.table().location().getNamespace().equals(FIXTURE_NAMESPACE) || decision.ruleFile().getNamespace().equals(BUILT_IN_NAMESPACE)), "A table outside the test namespace was decided by a test rule file");
     helper.assertTrue(IntegratedLoot.stats().equals(before), "The counters moved for a table without a decision");
     helper.succeed();
   }
@@ -759,8 +879,11 @@ public class LootrIntegratedLootTests implements FabricGameTest {
     List<String> stats = run(helper, "lootr integrated stats");
     helper.assertTrue(stats.size() == 6 && stats.get(0).equals("Integrated loot is enabled."), "Unexpected stats output: " + stats);
     helper.assertTrue(stats.get(1).equals("  Pools: " + snapshot.pools().size() + " usable, 1 without a source, 3 dropped sources."), "Unexpected pools line: " + stats.get(1));
-    helper.assertTrue(stats.get(2).equals("  Rule files: 5 active, 1 inactive (missing mods), 5 malformed files skipped."), "Unexpected rule files line: " + stats.get(2));
-    helper.assertTrue(stats.get(3).startsWith("  Loot tables: " + snapshot.extensionCount() + " extended, 1 excluded, 2 without a usable pool, 1 of another type, "), "Unexpected loot tables line: " + stats.get(3));
+    // Active: 5 test files, 2 test files of the namespace gate, lootr:vanilla. Inactive: 1 test file with a missing
+    // mod, 3 with a missing mod or namespace, and 50 built-in files that need a mod or a namespace that is not here.
+    helper.assertTrue(stats.get(2).equals("  Rule files: 8 active, 54 inactive (missing mods or namespaces), 5 malformed files skipped."), "Unexpected rule files line: " + stats.get(2));
+    long builtInExcluded = snapshot.decisions().values().stream().filter(decision -> decision.exclusion() && decision.ruleFile().getNamespace().equals(BUILT_IN_NAMESPACE)).count();
+    helper.assertTrue(stats.get(3).startsWith("  Loot tables: " + snapshot.extensionCount() + " extended, " + (1 + builtInExcluded) + " excluded, 2 without a usable pool, 1 of another type, "), "Unexpected loot tables line: " + stats.get(3));
     helper.assertTrue(stats.get(4).equals("  Patterns matching no loot table: 2."), "Unexpected patterns line: " + stats.get(4));
     helper.assertTrue(stats.get(5).startsWith("  Since server start: " + IntegratedLoot.stats().extensions() + " extensions, "), "Unexpected counters line: " + stats.get(5));
     helper.succeed();
@@ -825,6 +948,18 @@ public class LootrIntegratedLootTests implements FabricGameTest {
     return ResourceLocation.fromNamespaceAndPath("lootr_gametest", path);
   }
 
+  private static ResourceLocation gateId(String path) {
+    return ResourceLocation.fromNamespaceAndPath(GATE_NAMESPACE, path);
+  }
+
+  private static ResourceLocation builtIn(String path) {
+    return ResourceLocation.fromNamespaceAndPath(BUILT_IN_NAMESPACE, path);
+  }
+
+  private static ResourceKey<LootTable> vanillaKey(String path) {
+    return ResourceKey.create(Registries.LOOT_TABLE, ResourceLocation.withDefaultNamespace(path));
+  }
+
   private static ResourceKey<LootTable> key(String name) {
     return ResourceKey.create(Registries.LOOT_TABLE, id("integrated/" + name));
   }
@@ -849,7 +984,18 @@ public class LootrIntegratedLootTests implements FabricGameTest {
   }
 
   private static RuleFileInfo ruleFile(IntegratedLootSnapshot snapshot, String path) {
-    return snapshot.ruleFiles().stream().filter(file -> file.id().equals(id(path))).findFirst().orElseThrow(() -> new GameTestAssertException("Rule file " + path + " is not in the snapshot"));
+    return ruleFile(snapshot, id(path));
+  }
+
+  private static RuleFileInfo ruleFile(IntegratedLootSnapshot snapshot, ResourceLocation id) {
+    return snapshot.ruleFiles().stream().filter(file -> file.id().equals(id)).findFirst().orElseThrow(() -> new GameTestAssertException("Rule file " + id + " is not in the snapshot"));
+  }
+
+  /**
+   * Only the rule files of the test data pack, without the extra ones for the namespace gate and without the built-in ones.
+   */
+  private static List<RuleFileInfo> fixtureFiles(List<RuleFileInfo> files) {
+    return files.stream().filter(file -> file.id().getNamespace().equals(FIXTURE_NAMESPACE)).toList();
   }
 
   private static Decision assertDecision(GameTestHelper helper, IntegratedLootSnapshot snapshot, String table, String ruleFile, int entryIndex, String pattern, boolean exclusion, String pool) {

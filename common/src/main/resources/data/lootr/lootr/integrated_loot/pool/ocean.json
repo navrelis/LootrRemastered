@@ -1,0 +1,10 @@
+{
+  "sources": [
+    { "table": "minecraft:chests/shipwreck_supply", "weight": 2 },
+    { "table": "minecraft:chests/shipwreck_map", "weight": 1 },
+    { "table": "minecraft:chests/shipwreck_treasure", "weight": 2 },
+    { "table": "minecraft:chests/underwater_ruin_big", "weight": 2 },
+    { "table": "minecraft:chests/underwater_ruin_small", "weight": 2 },
+    { "table": "minecraft:chests/buried_treasure", "weight": 1 }
+  ]
+}

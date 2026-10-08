@@ -1,0 +1,9 @@
+{
+  "required_mods": ["mes"],
+  "entries": [
+    { "tables": ["mes:mega_ship_barrel_empty*"], "exclude": true },
+    { "tables": ["mes:end_rare", "mes:mega_ship_treasure"], "pool": "lootr:end", "rolls": 2 },
+    { "tables": ["mes:end_common", "mes:end_uncommon", "mes:mega_ship_crate"], "pool": "lootr:end", "rolls": 1 },
+    { "tables": ["mes:mega_ship_barrel"], "pool": "lootr:end", "rolls": { "min": 0, "max": 1 } }
+  ]
+}

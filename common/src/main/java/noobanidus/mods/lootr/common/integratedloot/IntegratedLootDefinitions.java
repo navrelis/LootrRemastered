@@ -229,15 +229,24 @@ public final class IntegratedLootDefinitions {
     }
   }
 
-  public record RuleFile(List<String> requiredMods, int priority, List<RuleEntry> entries) {
+  /**
+   * @param requiredMods       mod ids that must all be loaded.
+   * @param requiredNamespaces namespaces of which at least one loot table must be loaded each; for content that has
+   *                           no mod id (data packs, mods running through a compatibility layer).
+   */
+  public record RuleFile(List<String> requiredMods, List<String> requiredNamespaces, int priority, List<RuleEntry> entries) {
+    private static final Codec<String> NAMESPACE_CODEC = Codec.STRING.validate(namespace -> !namespace.isEmpty() && ResourceLocation.isValidNamespace(namespace) ? DataResult.success(namespace) : DataResult.error(() -> "Not a valid namespace: '" + namespace + "'"));
+
     public static final Codec<RuleFile> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         Codec.STRING.listOf().optionalFieldOf("required_mods", List.of()).forGetter(RuleFile::requiredMods),
+        NAMESPACE_CODEC.listOf().optionalFieldOf("required_namespaces", List.of()).forGetter(RuleFile::requiredNamespaces),
         Codec.INT.optionalFieldOf("priority", 0).forGetter(RuleFile::priority),
         RuleEntry.CODEC.listOf().fieldOf("entries").forGetter(RuleFile::entries)
     ).apply(instance, RuleFile::new));
 
     public RuleFile {
       requiredMods = List.copyOf(requiredMods);
+      requiredNamespaces = List.copyOf(requiredNamespaces);
       entries = List.copyOf(entries);
     }
   }

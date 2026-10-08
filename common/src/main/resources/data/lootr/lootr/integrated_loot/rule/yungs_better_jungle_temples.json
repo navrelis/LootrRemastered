@@ -1,0 +1,7 @@
+{
+  "required_mods": ["betterjungletemples"],
+  "entries": [
+    { "tables": ["betterjungletemples:chests/treasure"], "pool": "lootr:overworld_rare", "rolls": 2 },
+    { "tables": ["betterjungletemples:chests/campsite"], "pool": "lootr:overworld_common", "rolls": 1 }
+  ]
+}

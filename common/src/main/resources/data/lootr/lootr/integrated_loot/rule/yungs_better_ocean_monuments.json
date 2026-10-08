@@ -1,0 +1,6 @@
+{
+  "required_mods": ["betteroceanmonuments"],
+  "entries": [
+    { "tables": ["betteroceanmonuments:chests/*"], "pool": "lootr:ocean", "rolls": 1 }
+  ]
+}

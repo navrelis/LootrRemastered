@@ -1,0 +1,9 @@
+{
+  "required_mods": ["biomeswevegone"],
+  "entries": [
+    { "tables": ["biomeswevegone:chests/advancement/**"], "exclude": true },
+    { "tables": ["biomeswevegone:chests/village/**/library"], "pool": "lootr:overworld_rare", "rolls": 1 },
+    { "tables": ["biomeswevegone:chests/village/**/animal_pen", "biomeswevegone:chests/village/**/forager"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["biomeswevegone:chests/village/**"], "pool": "lootr:village", "rolls": 1 }
+  ]
+}

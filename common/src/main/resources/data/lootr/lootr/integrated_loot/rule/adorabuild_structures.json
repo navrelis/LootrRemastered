@@ -1,0 +1,6 @@
+{
+  "required_mods": ["adorabuild_structures"],
+  "entries": [
+    { "tables": ["adorabuild_structures:beehive_loot", "adorabuild_structures:food_loot"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } }
+  ]
+}

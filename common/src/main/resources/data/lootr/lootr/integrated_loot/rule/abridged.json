@@ -1,0 +1,6 @@
+{
+  "required_mods": ["abridged"],
+  "entries": [
+    { "tables": ["abridged:chests/*"], "pool": "lootr:overworld_common", "rolls": 1 }
+  ]
+}

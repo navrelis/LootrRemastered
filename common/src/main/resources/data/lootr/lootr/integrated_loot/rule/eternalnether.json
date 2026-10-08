@@ -1,0 +1,7 @@
+{
+  "required_mods": ["eternalnether"],
+  "entries": [
+    { "tables": ["eternalnether:chests/citadel", "eternalnether:chests/**treasure*"], "pool": "lootr:nether", "rolls": 2 },
+    { "tables": ["eternalnether:chests/**"], "pool": "lootr:nether", "rolls": 1 }
+  ]
+}

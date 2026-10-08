@@ -1,0 +1,10 @@
+{
+  "required_mods": ["betterdeserttemples"],
+  "entries": [
+    { "tables": ["betterdeserttemples:chests/pot"], "exclude": true },
+    { "tables": ["betterdeserttemples:chests/pharaoh_hidden", "betterdeserttemples:chests/tomb_pharaoh"], "pool": "lootr:overworld_rare", "rolls": 2 },
+    { "tables": ["betterdeserttemples:chests/library"], "pool": "lootr:overworld_rare", "rolls": 1 },
+    { "tables": ["betterdeserttemples:chests/*storage", "betterdeserttemples:chests/wardrobe"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["betterdeserttemples:chests/*"], "pool": "lootr:overworld_common", "rolls": 1 }
+  ]
+}

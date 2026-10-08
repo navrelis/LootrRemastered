@@ -1,0 +1,6 @@
+{
+  "required_mods": ["betterwitchhuts"],
+  "entries": [
+    { "tables": ["betterwitchhuts:chests/*"], "pool": "lootr:overworld_common", "rolls": 1 }
+  ]
+}

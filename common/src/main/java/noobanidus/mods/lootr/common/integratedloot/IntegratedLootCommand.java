@@ -87,7 +87,7 @@ public final class IntegratedLootCommand {
     long withoutPool = snapshot.decisions().values().stream().filter(decision -> !decision.exclusion() && !decision.active()).count();
     send(source, "Integrated loot is " + (IntegratedLoot.getSettings().enabled() ? "enabled" : "disabled") + ".");
     send(source, "  Pools: " + snapshot.pools().size() + " usable, " + snapshot.unusablePools().size() + " without a source, " + snapshot.droppedSources().size() + " dropped sources.");
-    send(source, "  Rule files: " + snapshot.activeRuleFiles().size() + " active, " + snapshot.inactiveRuleFiles().size() + " inactive (missing mods), " + snapshot.malformedFiles().size() + " malformed files skipped.");
+    send(source, "  Rule files: " + snapshot.activeRuleFiles().size() + " active, " + snapshot.inactiveRuleFiles().size() + " inactive (missing mods or namespaces), " + snapshot.malformedFiles().size() + " malformed files skipped.");
     send(source, "  Loot tables: " + snapshot.extensionCount() + " extended, " + snapshot.exclusionCount() + " excluded, " + withoutPool + " without a usable pool, " + snapshot.ineligibleMatches().size() + " of another type, " + snapshot.tableCount() + " loaded.");
     send(source, "  Patterns matching no loot table: " + snapshot.unmatchedPatterns().size() + ".");
     send(source, "  Since server start: " + stats.extensions() + " extensions, " + stats.sourceRolls() + " source rolls, " + stats.stacksAdded() + " stacks added, " + stats.failures() + " failures.");

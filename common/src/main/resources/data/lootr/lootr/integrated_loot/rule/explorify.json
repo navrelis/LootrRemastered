@@ -1,0 +1,8 @@
+{
+  "required_mods": ["explorify"],
+  "entries": [
+    { "tables": ["explorify:chest/mausoleum_pot"], "exclude": true },
+    { "tables": ["explorify:chest/supply_cache"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["explorify:chest/dark_forest_settlement"], "pool": "lootr:village", "rolls": 1 }
+  ]
+}

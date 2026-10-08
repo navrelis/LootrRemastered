@@ -1,0 +1,16 @@
+{
+  "sources": [
+    { "table": "minecraft:chests/simple_dungeon", "weight": 4 },
+    { "table": "minecraft:chests/abandoned_mineshaft", "weight": 3 },
+    { "table": "minecraft:chests/desert_pyramid", "weight": 2 },
+    { "table": "minecraft:chests/jungle_temple", "weight": 2 },
+    { "table": "minecraft:chests/pillager_outpost", "weight": 3 },
+    { "table": "minecraft:chests/igloo_chest", "weight": 1 },
+    { "table": "minecraft:chests/ruined_portal", "weight": 2 },
+    { "table": "minecraft:chests/trial_chambers/corridor", "weight": 2 },
+    { "table": "minecraft:chests/trial_chambers/entrance", "weight": 1 },
+    { "table": "minecraft:chests/trial_chambers/intersection", "weight": 1 },
+    { "table": "minecraft:chests/trial_chambers/intersection_barrel", "weight": 1 },
+    { "table": "minecraft:chests/trial_chambers/supply", "weight": 1 }
+  ]
+}

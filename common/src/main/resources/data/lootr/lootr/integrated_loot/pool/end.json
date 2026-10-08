@@ -1,0 +1,5 @@
+{
+  "sources": [
+    { "table": "minecraft:chests/end_city_treasure", "weight": 1 }
+  ]
+}

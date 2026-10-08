@@ -1,0 +1,7 @@
+{
+  "required_mods": ["supplementaries"],
+  "entries": [
+    { "tables": ["supplementaries:loot/galleon/cannon", "supplementaries:loot/galleon/key"], "exclude": true },
+    { "tables": ["supplementaries:loot/galleon/chest", "supplementaries:loot/galleon/safe"], "pool": "lootr:ocean", "rolls": 2 }
+  ]
+}

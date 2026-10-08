@@ -1,0 +1,6 @@
+{
+  "required_namespaces": ["astral_dimension"],
+  "entries": [
+    { "tables": ["astral_dimension:chests/**"], "exclude": true }
+  ]
+}

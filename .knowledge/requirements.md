@@ -39,6 +39,8 @@ Item Obliterator 3.1.1, Advanced Loot Info 2.3.0, EMI Loot 0.7.9, dragonloot 1.1
 - Really check all loot tables of Nytheria.
 - The PC may be taken over for game runs.
 
+- 2026-10-08, asked during the second lead session: when the mod is finished, tell the owner (1) whether the original Lootr and all Loot Integrations jars can be removed from the pack, with the exact list, and (2) exactly what to upload to CurseForge: description, summary and the pixel-art logo (file paths and ready-to-paste text). Both go into `report.md` and the final message.
+
 ## Licence facts (checked 2026-10-08)
 - Lootr code: MIT (`LICENSE`). Lootr assets: all rights reserved (`LICENSE_ASSETS.txt`).
 - Loot Integrations 4.7 and all nine add-ons: `"license": "ARR"` in each jar's `fabric.mod.json`; CurseForge page states "All Rights Reserved"; GitHub repository has no licence; not on Modrinth. Reuse is not allowed.

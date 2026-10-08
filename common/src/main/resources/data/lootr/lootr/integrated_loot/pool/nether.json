@@ -1,0 +1,10 @@
+{
+  "sources": [
+    { "table": "minecraft:chests/nether_bridge", "weight": 3 },
+    { "table": "minecraft:chests/bastion_other", "weight": 3 },
+    { "table": "minecraft:chests/bastion_bridge", "weight": 2 },
+    { "table": "minecraft:chests/bastion_hoglin_stable", "weight": 2 },
+    { "table": "minecraft:chests/bastion_treasure", "weight": 1 },
+    { "table": "minecraft:chests/ruined_portal", "weight": 1 }
+  ]
+}

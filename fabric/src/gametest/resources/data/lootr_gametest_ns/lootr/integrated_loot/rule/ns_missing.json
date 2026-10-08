@@ -1,0 +1,9 @@
+{
+  "required_namespaces": ["lootr_gametest_absent_namespace"],
+  "entries": [
+    {
+      "tables": ["lootr_gametest:integrated/target_ns_missing"],
+      "pool": "lootr_gametest:bcd"
+    }
+  ]
+}

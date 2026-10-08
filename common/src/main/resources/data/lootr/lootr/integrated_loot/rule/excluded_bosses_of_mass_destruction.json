@@ -1,0 +1,6 @@
+{
+  "required_mods": ["bosses_of_mass_destruction"],
+  "entries": [
+    { "tables": ["bosses_of_mass_destruction:chests/**"], "exclude": true }
+  ]
+}

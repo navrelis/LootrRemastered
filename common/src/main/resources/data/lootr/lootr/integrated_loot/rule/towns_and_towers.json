@@ -1,0 +1,8 @@
+{
+  "required_mods": ["t_and_t"],
+  "entries": [
+    { "tables": ["kaisyn:outpost/common/food", "kaisyn:outpost/exclusives/*_barrel"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["kaisyn:outpost/common/armory"], "pool": "lootr:overworld_common", "rolls": 1 },
+    { "tables": ["kaisyn:village/**"], "pool": "lootr:village", "rolls": 1 }
+  ]
+}

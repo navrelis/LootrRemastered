@@ -1,0 +1,6 @@
+{
+  "required_mods": ["deeperdarker"],
+  "entries": [
+    { "tables": ["deeperdarker:chests/**"], "exclude": true }
+  ]
+}

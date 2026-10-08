@@ -1,0 +1,11 @@
+{
+  "sources": [
+    { "table": "minecraft:chests/stronghold_corridor", "weight": 2 },
+    { "table": "minecraft:chests/stronghold_crossing", "weight": 2 },
+    { "table": "minecraft:chests/stronghold_library", "weight": 2 },
+    { "table": "minecraft:chests/woodland_mansion", "weight": 3 },
+    { "table": "minecraft:chests/ancient_city", "weight": 3 },
+    { "table": "minecraft:chests/trial_chambers/reward", "weight": 2 },
+    { "table": "minecraft:chests/trial_chambers/reward_ominous", "weight": 1 }
+  ]
+}

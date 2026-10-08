@@ -1,0 +1,37 @@
+{
+  "required_mods": ["twilightforest"],
+  "entries": [
+    {
+      "tables": [
+        "twilightforest:chests/**",
+        "twilightforest:aurora_cache",
+        "twilightforest:aurora_room",
+        "twilightforest:camp_armor_rack",
+        "twilightforest:camp_drying_rack",
+        "twilightforest:camp_pot",
+        "twilightforest:camp_tent",
+        "twilightforest:darktower_boss",
+        "twilightforest:darktower_cache",
+        "twilightforest:darktower_key",
+        "twilightforest:fallen_trunk_loot",
+        "twilightforest:fancy_well",
+        "twilightforest:foundation_basement",
+        "twilightforest:graveyard",
+        "twilightforest:hedge_cloth",
+        "twilightforest:hedge_maze",
+        "twilightforest:hill_*",
+        "twilightforest:labyrinth_*",
+        "twilightforest:quest_grove_dropper",
+        "twilightforest:stronghold_cache",
+        "twilightforest:stronghold_room",
+        "twilightforest:tree_cache",
+        "twilightforest:troll_garden",
+        "twilightforest:troll_vault",
+        "twilightforest:troll_vault_with_lamp",
+        "twilightforest:useless",
+        "twilightforest:well"
+      ],
+      "exclude": true
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "required_mods": ["friendsandfoes"],
+  "entries": [
+    { "tables": ["friendsandfoes:chests/abandoned_mineshaft_music_disc", "friendsandfoes:rewards/**"], "exclude": true },
+    { "tables": ["friendsandfoes:barrels/*"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["friendsandfoes:chests/*"], "pool": "lootr:overworld_common", "rolls": 1 }
+  ]
+}

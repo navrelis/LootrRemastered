@@ -1,0 +1,6 @@
+{
+  "required_mods": ["eternal_starlight"],
+  "entries": [
+    { "tables": ["eternal_starlight:chests/**"], "exclude": true }
+  ]
+}

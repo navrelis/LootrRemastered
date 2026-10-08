@@ -23,10 +23,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Predicate;
 
@@ -125,7 +127,8 @@ public final class IntegratedLootSnapshot {
   }
 
   /**
-   * @return the rule files that are ignored because a required mod is missing, see {@link RuleFileInfo#missingMods()}.
+   * @return the rule files that are ignored because a required mod or namespace is missing, see
+   * {@link RuleFileInfo#missingMods()} and {@link RuleFileInfo#missingNamespaces()}.
    */
   public List<RuleFileInfo> inactiveRuleFiles() {
     return inactiveRuleFiles;
@@ -199,15 +202,18 @@ public final class IntegratedLootSnapshot {
   }
 
   /**
-   * @param missingMods the required mods that are not loaded; the file is active exactly when this is empty.
+   * @param missingMods       the required mods that are not loaded.
+   * @param missingNamespaces the required namespaces of which no loot table is loaded; the file is active exactly
+   *                          when this and {@link #missingMods()} are empty.
    */
-  public record RuleFileInfo(ResourceLocation id, int priority, int entries, List<String> missingMods) {
+  public record RuleFileInfo(ResourceLocation id, int priority, int entries, List<String> missingMods, List<String> missingNamespaces) {
     public RuleFileInfo {
       missingMods = List.copyOf(missingMods);
+      missingNamespaces = List.copyOf(missingNamespaces);
     }
 
     public boolean active() {
-      return missingMods.isEmpty();
+      return missingMods.isEmpty() && missingNamespaces.isEmpty();
     }
   }
 
@@ -307,12 +313,16 @@ public final class IntegratedLootSnapshot {
     List<OrderedRuleFile> ordered = new ArrayList<>();
     definitions.ruleFiles().forEach((id, file) -> ordered.add(new OrderedRuleFile(id, file)));
     ordered.sort(Comparator.<OrderedRuleFile>comparingInt(file -> file.file().priority()).reversed().thenComparing(OrderedRuleFile::id));
+    Set<String> loadedNamespaces = new HashSet<>();
+    registry.keySet().forEach(id -> loadedNamespaces.add(id.getNamespace()));
     List<RuleFileInfo> ruleFiles = new ArrayList<>();
     List<OrderedRuleFile> active = new ArrayList<>();
     for (OrderedRuleFile file : ordered) {
-      List<String> missing = file.file().requiredMods().stream().filter(mod -> !modLoaded.test(mod)).distinct().toList();
-      ruleFiles.add(new RuleFileInfo(file.id(), file.file().priority(), file.file().entries().size(), missing));
-      if (missing.isEmpty()) {
+      List<String> missingMods = file.file().requiredMods().stream().filter(mod -> !modLoaded.test(mod)).distinct().toList();
+      List<String> missingNamespaces = file.file().requiredNamespaces().stream().filter(namespace -> !loadedNamespaces.contains(namespace)).distinct().toList();
+      RuleFileInfo info = new RuleFileInfo(file.id(), file.file().priority(), file.file().entries().size(), missingMods, missingNamespaces);
+      ruleFiles.add(info);
+      if (info.active()) {
         active.add(file);
       }
     }

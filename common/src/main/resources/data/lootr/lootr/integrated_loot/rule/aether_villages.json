@@ -1,0 +1,8 @@
+{
+  "required_mods": ["aether_villages"],
+  "entries": [
+    { "tables": ["aether_villages:chests/olympic_citadel/*_treasure"], "pool": "lootr:overworld_rare", "rolls": 2 },
+    { "tables": ["aether_villages:chests/olympic_citadel/*_supply"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } },
+    { "tables": ["aether_villages:chests/olympic_citadel/*_normal"], "pool": "lootr:overworld_common", "rolls": 1 }
+  ]
+}

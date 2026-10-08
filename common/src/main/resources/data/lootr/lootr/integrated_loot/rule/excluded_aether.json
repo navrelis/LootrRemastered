@@ -1,0 +1,6 @@
+{
+  "required_mods": ["aether"],
+  "entries": [
+    { "tables": ["aether:chests/**"], "exclude": true }
+  ]
+}

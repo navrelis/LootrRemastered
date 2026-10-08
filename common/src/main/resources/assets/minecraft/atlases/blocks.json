@@ -1,12 +1,3 @@
 {
-  "sources": [
-    {
-      "type": "minecraft:single",
-      "resource": "lootr:chest_opened"
-    },
-    {
-      "type": "minecraft:single",
-      "resource": "minecraft:entity/player/wide/steve"
-    }
-  ]
+  "sources": []
 }

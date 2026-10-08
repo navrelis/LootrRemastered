@@ -1,7 +1,6 @@
 package noobanidus.mods.lootr.common.block;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
@@ -14,8 +13,9 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class TrophyBlock extends Block {
-  private static final VoxelShape EAST_WEST = Block.box(1.5, 0, 4, 14.5, 14.5, 12);
-  private static final VoxelShape NORTH_SOUTH = Block.box(4, 0, 1.5, 12, 14.5, 14.5);
+  // The outer bounds of trophy.json: plinth and handles in x and z, the tip of the gem in y. The model is
+  // symmetric around the block's vertical axis, so every facing has the same shape.
+  private static final VoxelShape SHAPE = Block.box(4, 0, 4, 12, 14, 12);
 
   public TrophyBlock(Properties properties) {
     super(properties);
@@ -35,12 +35,7 @@ public class TrophyBlock extends Block {
   @Override
   @SuppressWarnings("deprecation")
   public VoxelShape getShape(BlockState state, BlockGetter worldIn, BlockPos pos, CollisionContext context) {
-    Direction facing = state.getValue(HorizontalDirectionalBlock.FACING);
-    if (facing == Direction.EAST || facing == Direction.WEST) {
-      return EAST_WEST;
-    } else {
-      return NORTH_SOUTH;
-    }
+    return SHAPE;
   }
 
   @Override

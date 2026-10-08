@@ -1,6 +1,8 @@
 package noobanidus.mods.lootr.fabric.impl;
 
+import net.fabricmc.api.EnvType;
 import net.fabricmc.fabric.api.entity.FakePlayer;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -24,6 +26,14 @@ public class LootrAPIImpl extends DefaultLootrAPIImpl {
   @Override
   public MinecraftServer getServer() {
     return LootrEventsInit.serverInstance;
+  }
+
+  @Override
+  public void refreshSections() {
+    // Without a registered server the default implementation takes the client path; a dedicated server must never get there.
+    if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
+      super.refreshSections();
+    }
   }
 
   @Override
@@ -320,7 +330,8 @@ public class LootrAPIImpl extends DefaultLootrAPIImpl {
 
   @Override
   public SaveMode getFileSaveMode() {
-    return ConfigManager.get().conversion.save_mode;
+    // The `save_mode` option was never read by anything and has been removed; the API keeps answering with its former default.
+    return SaveMode.SMART;
   }
 
   @Override

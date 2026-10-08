@@ -129,6 +129,7 @@
   "lootr.message.refresh_in": "This container will refresh its contents in %s seconds.",
   "lootr.message.refresh_start": "The container will refresh with new contents in %s seconds!",
   "lootr.message.refreshed": "The contents of the container are refreshed at your touch!",
+  "lootr.message.refreshed_while_open": "This container's loot has refreshed.",
   "lootr.message.should_sneak": "Breaking this block will prevent others from obtaining loot! Only break if really needed.",
   "lootr.message.should_sneak2": "To break the block anyway, sneak while breaking.",
   "lootr.toast.decay.complete": "Container decayed!",

@@ -29,6 +29,7 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.ReloadableServerRegistries;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -81,6 +82,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.lang.ref.WeakReference;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Consumer;
@@ -95,9 +97,13 @@ public class CommandLootr {
 
   private static final List<String> LOOT_TABLE_INCLUDES = List.of("archaeology/", "chests/", "gameplay/fishing", "pots/");
 
+  // A data reload (or another server in the same JVM) brings a new registries holder; the cached tables are only
+  // valid for the holder they were read from.
+  private static WeakReference<ReloadableServerRegistries.Holder> tablesSource = new WeakReference<>(null);
+
   private static List<ResourceKey<LootTable>> getTables() {
-    if (tables == null) {
-      MinecraftServer server = LootrAPI.getServer();
+    ReloadableServerRegistries.Holder registries = LootrAPI.getServer().reloadableRegistries();
+    if (tables == null || tablesSource.get() != registries) {
       Predicate<ResourceKey<LootTable>> predicate = (o) -> {
         var path = o.location().getPath();
         for (String start : LOOT_TABLE_INCLUDES) {
@@ -108,9 +114,10 @@ public class CommandLootr {
 
         return false;
       };
-      tables = server.reloadableRegistries().lookup().lookup(Registries.LOOT_TABLE)
+      tables = registries.lookup().lookup(Registries.LOOT_TABLE)
           .map(o -> (HolderLookup<LootTable>) o).map(HolderLookup::listElementIds)
           .orElse(Stream.of()).filter(predicate).toList();
+      tablesSource = new WeakReference<>(registries);
     }
     return tables;
   }
@@ -499,7 +506,7 @@ public class CommandLootr {
             }
         )));
 
-    builder.then(Commands.literal("custom-area-old").then(Commands.argument("from", BlockPosArgument.blockPos())
+    builder.then(Commands.literal("custom-area").then(Commands.argument("from", BlockPosArgument.blockPos())
         .then(Commands.argument("to", BlockPosArgument.blockPos()).executes(context -> {
           BoundingBox bounds = BoundingBox.fromCorners(BlockPosArgument.getLoadedBlockPos(context, "from"), BlockPosArgument.getLoadedBlockPos(context, "to"));
           ChunkPos start = new ChunkPos(new BlockPos(bounds.minX(), bounds.minY(), bounds.minZ()));

@@ -7,6 +7,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.ContainerHelper;
@@ -301,6 +302,7 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
       for (Slot slot : player.containerMenu.slots) {
         if (slot.container instanceof LootrInventory inventory && inventory.getInfo() == this) {
           player.closeContainer();
+          player.displayClientMessage(Component.translatable("lootr.message.refreshed_while_open"), true);
           break;
         }
       }

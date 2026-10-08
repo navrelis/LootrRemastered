@@ -2,6 +2,7 @@ package noobanidus.mods.lootr.fabric.config;
 
 import me.shedaniel.autoconfig.AutoConfig;
 import me.shedaniel.autoconfig.ConfigData;
+import me.shedaniel.autoconfig.ConfigHolder;
 import me.shedaniel.autoconfig.annotation.Config;
 import me.shedaniel.autoconfig.annotation.ConfigEntry;
 import net.minecraft.core.registries.Registries;
@@ -13,7 +14,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.loot.LootTable;
 import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.api.LootrTags;
-import noobanidus.mods.lootr.common.api.config.SaveMode;
 import noobanidus.mods.lootr.common.api.config.SyncedConfig;
 import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
 import noobanidus.mods.lootr.common.config.ConfigManagerBase;
@@ -104,8 +104,18 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     LootrAPI.refreshSections();
   }
 
+  // The holder is registered once and never replaced, unlike the configuration object it hands out: a load
+  // (for example from the config screen) swaps that object, so only the holder is cached.
+  @ConfigEntry.Gui.Excluded
+  private static ConfigHolder<ConfigManager> HOLDER = null;
+
   public static ConfigManager get() {
-    return AutoConfig.getConfigHolder(ConfigManager.class).getConfig();
+    ConfigHolder<ConfigManager> holder = HOLDER;
+    if (holder == null) {
+      holder = AutoConfig.getConfigHolder(ConfigManager.class);
+      HOLDER = holder;
+    }
+    return holder.getConfig();
   }
 
   public static Set<ResourceKey<Level>> getDimensionWhitelist() {
@@ -354,8 +364,6 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     public boolean perform_piecewise_check = true;
     public boolean bypass_spawn_protection = true;
     public boolean skip_logging_no_loot_table_at_generation = true;
-    @ConfigEntry.Gui.EnumHandler(option = ConfigEntry.Gui.EnumHandler.EnumDisplayOption.BUTTON)
-    public SaveMode save_mode = SaveMode.SMART;
     public int tickDelay = 20;
   }
 

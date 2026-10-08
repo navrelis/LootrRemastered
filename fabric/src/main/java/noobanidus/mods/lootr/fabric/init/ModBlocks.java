@@ -16,7 +16,7 @@ public class ModBlocks {
   public static final Block TROPHY = new TrophyBlock(LootrConstants.TROPHY_PROPERTIES);
   public static final LootrShulkerBlock SHULKER = new LootrShulkerBlock(LootrConstants.SHULKER_BOX_PROPERTIES);
 
-  public static final LootrBrushableBlock SUSPICIOUS_SAND = new LootrBrushableBlock(Blocks.SAND, ((BrushableBlock)Blocks.SUSPICIOUS_SAND).getBrushSound(), ((BrushableBlock)Blocks.SUSPICIOUS_GRAVEL).getBrushCompletedSound(), LootrConstants.SUSPICIOUS_SAND_PROPERTIES);
+  public static final LootrBrushableBlock SUSPICIOUS_SAND = new LootrBrushableBlock(Blocks.SAND, ((BrushableBlock)Blocks.SUSPICIOUS_SAND).getBrushSound(), ((BrushableBlock)Blocks.SUSPICIOUS_SAND).getBrushCompletedSound(), LootrConstants.SUSPICIOUS_SAND_PROPERTIES);
   public static final LootrBrushableBlock SUSPICIOUS_GRAVEL = new LootrBrushableBlock(Blocks.GRAVEL, ((BrushableBlock)Blocks.SUSPICIOUS_GRAVEL).getBrushSound(), ((BrushableBlock)Blocks.SUSPICIOUS_GRAVEL).getBrushCompletedSound(), LootrConstants.SUSPICIOUS_GRAVEL_PROPERTIES);
 
   public static final LootrDecoratedPotBlock DECORATED_POT = new LootrDecoratedPotBlock(LootrConstants.DECORATED_POT_PROPERTIES);

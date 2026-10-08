@@ -45,5 +45,8 @@
     "minecraft": "${minecraft_version}",
     "java": ">=21",
     "cloth-config": ">=15.0.127"
+  },
+  "breaks": {
+    "lootintegrations": "*"
   }
 }

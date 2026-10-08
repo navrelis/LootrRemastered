@@ -116,10 +116,12 @@ def main():
                 "common/src/main/resources/assets/lootr/models/item/trophy.json"):
         if "lootr:block/trophy" not in open(os.path.join(g.ROOT, rel), encoding="utf-8").read():
             problems.append(rel + " does not point at lootr:block/trophy")
-    atlas = open(os.path.join(g.ROOT, "common/src/main/resources/assets/minecraft/atlases/blocks.json"), encoding="utf-8").read()
-    json.loads(atlas)
-    if "entity/player" in atlas:
-        problems.append("blocks atlas still stitches the player skin")
+    atlas_dir = "common/src/main/resources/assets/minecraft/atlases/"
+    for name in ("chests.json", "shulker_boxes.json", "decorated_pot.json"):
+        atlas = open(os.path.join(g.ROOT, atlas_dir, name), encoding="utf-8").read()
+        json.loads(atlas)
+        if "entity/player" in atlas:
+            problems.append("atlas %s still stitches the player skin" % name)
     if os.path.exists(os.path.join(g.ROOT, T, "logo.png")):
         problems.append("textures/logo.png still exists")
     print("\ntrophy model / atlas / logo: %s" % ("ok (%d elements)" % len(model["elements"]) if not problems else "; ".join(problems)))

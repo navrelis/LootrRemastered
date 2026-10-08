@@ -1,6 +1,5 @@
 {
   "textures": {
-    "particle": "block/terracotta"
+    "particle": "minecraft:block/terracotta"
   }
 }
-

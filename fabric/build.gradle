@@ -163,4 +163,10 @@ tasks.named("processGametestResources", ProcessResources) {
     }
 }
 
+// Ship the code and asset licences at the jar root; remapJar remaps the output of this task, so they end up in the release jar.
+tasks.named("jar", Jar) {
+    from(rootProject.file("LICENSE"))
+    from(rootProject.file("LICENSE_ASSETS.txt"))
+}
+
 tasks.build.mustRunAfter tasks.clean

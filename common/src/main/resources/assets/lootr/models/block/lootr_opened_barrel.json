@@ -1,10 +1,10 @@
 {
-  "parent": "block/cube_bottom_top",
+  "parent": "minecraft:block/cube_bottom_top",
   "render_type": "minecraft:cutout",
   "textures": {
-    "particle": "lootr:block/opened_barrel_top",
     "top": "lootr:block/opened_barrel_top",
     "side": "lootr:block/opened_barrel_side",
-    "bottom": "lootr:block/opened_barrel_bottom"
+    "bottom": "lootr:block/opened_barrel_bottom",
+    "particle": "lootr:block/opened_barrel_top"
   }
 }

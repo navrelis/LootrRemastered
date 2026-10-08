@@ -18,6 +18,7 @@ import noobanidus.mods.lootr.common.api.config.SyncedConfig;
 import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
 import noobanidus.mods.lootr.common.config.ConfigManagerBase;
 import noobanidus.mods.lootr.common.impl.LootrServiceRegistry;
+import noobanidus.mods.lootr.common.itemban.ItemBanSettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -78,6 +79,8 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
   public Client client = new Client();
   @ConfigEntry.Gui.CollapsibleObject
   public Team team = new Team();
+  @ConfigEntry.Gui.CollapsibleObject
+  public ItemBanOptions item_bans = new ItemBanOptions();
 
   public static void reset() {
     LootrServiceRegistry.clearReplacements();
@@ -299,6 +302,16 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     return get().configSync();
   }
 
+  // Snapshot of the `item_bans` section for common code (see ItemBans#applySettings). Not static on purpose:
+  // while a load listener runs, `get()` still returns the previous configuration.
+  public ItemBanSettings itemBanSettings() {
+    ItemBanOptions options = item_bans;
+    if (options == null) {
+      return ItemBanSettings.DEFAULT;
+    }
+    return new ItemBanSettings(options.respect_item_obliterator, options.filter_all_loot, options.scrub_saved_inventories, options.extra_banned_items);
+  }
+
   private SyncedConfig configSync () {
     return new SyncedConfig(
         conversion.bypass_spawn_protection,
@@ -400,5 +413,16 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
   public static class Team {
     public boolean team_loot = false;
     public String pinned_team_resolver = "";
+  }
+
+  public static class ItemBanOptions {
+    // Treat items disabled by the mod Item Obliterator (if installed) as banned.
+    public boolean respect_item_obliterator = true;
+    // Remove banned items from every loot table roll; if false, only from Lootr's own containers.
+    public boolean filter_all_loot = true;
+    // Remove banned items from already saved per-player inventories when they are accessed (permanent).
+    public boolean scrub_saved_inventories = true;
+    // Additional banned items: "namespace:path" item ids or "#namespace:path" item tags.
+    public List<String> extra_banned_items = List.of();
   }
 }

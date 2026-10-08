@@ -23,6 +23,7 @@
     "hopper.MixinEntitySelector",
     "hopper.MixinHopperBlockEntity",
     "integration.create.MixinSchematicPrinter",
+    "itemban.MixinLootTable",
     "lock.MixinBaseContainerBlockEntity",
     "poi.MixinPoiType",
     "poi.MixinPoiTypes",

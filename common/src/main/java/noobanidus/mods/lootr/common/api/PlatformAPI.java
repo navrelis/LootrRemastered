@@ -127,4 +127,9 @@ public class PlatformAPI {
   public static void alertContainerStatus (ServerPlayer player, ContainerStatus status, ContainerStatus.Type type, int remainingDuration) {
     INSTANCE.alertContainerStatus(player, status, type, remainingDuration);
   }
+
+  public static boolean isModLoaded(String modId) {
+    IPlatformAPI instance = INSTANCE;
+    return instance != null && instance.isModLoaded(modId);
+  }
 }

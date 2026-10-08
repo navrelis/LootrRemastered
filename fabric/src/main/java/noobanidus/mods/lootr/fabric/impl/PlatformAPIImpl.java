@@ -2,6 +2,7 @@ package noobanidus.mods.lootr.fabric.impl;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.level.ServerLevel;
@@ -121,5 +122,10 @@ public class PlatformAPIImpl extends DefaultPlatformAPIImpl implements IPlatform
   @Override
   public void alertContainerStatus(ServerPlayer player, ContainerStatus status, ContainerStatus.Type type, int remainingDuration) {
     ServerPlayNetworking.send(player, new PacketContainerStatus(status, type, remainingDuration));
+  }
+
+  @Override
+  public boolean isModLoaded(String modId) {
+    return FabricLoader.getInstance().isModLoaded(modId);
   }
 }

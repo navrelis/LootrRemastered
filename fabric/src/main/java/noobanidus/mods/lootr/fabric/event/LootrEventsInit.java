@@ -2,6 +2,7 @@ package noobanidus.mods.lootr.fabric.event;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -23,6 +24,7 @@ import noobanidus.mods.lootr.common.block.entity.BlockEntityTicker;
 import noobanidus.mods.lootr.common.chunk.LoadedChunks;
 import noobanidus.mods.lootr.common.command.CommandLootr;
 import noobanidus.mods.lootr.common.data.DataStorage;
+import noobanidus.mods.lootr.common.itemban.ItemBans;
 import noobanidus.mods.lootr.fabric.config.ConfigManager;
 import noobanidus.mods.lootr.fabric.network.to_client.PacketSyncConfig;
 
@@ -56,6 +58,10 @@ public class LootrEventsInit {
         ServerPlayNetworking.send(handler.player, new PacketSyncConfig(ConfigManager.getConfigForSync()));
       }
     });
+
+    // Fires whenever data packs are (re)loaded, including `/reload`: forget which ban sources were reported
+    // as failing and drop the parsed `extra_banned_items` (tags may have changed).
+    CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> ItemBans.onDataReload());
 
     ModContainer container = FabricLoader.getInstance().getModContainer(LootrAPI.MODID).orElseThrow();
 

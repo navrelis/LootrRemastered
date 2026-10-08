@@ -7,12 +7,14 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import noobanidus.mods.lootr.common.api.LootrAPI;
+import noobanidus.mods.lootr.common.itemban.ItemBans;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,8 +41,14 @@ public class DefaultLootFiller implements LootFiller {
     BlockPos pos = provider.getInfoPos();
     ResourceKey<LootTable> lootTable = provider.getInfoLootTable();
     if (provider.isInfoReferenceInventory() && provider.getInfoReferenceInventory() != null) {
+      boolean checkBans = ItemBans.isActive();
       for (int i = 0; i < provider.getInfoReferenceInventory().size(); i++) {
-        inventory.setItem(i, provider.getInfoReferenceInventory().get(i).copy());
+        ItemStack stack = provider.getInfoReferenceInventory().get(i);
+        if (checkBans && ItemBans.isBanned(stack)) {
+          // Banned stacks are not handed to the player; the stored reference itself stays untouched.
+          continue;
+        }
+        inventory.setItem(i, stack.copy());
       }
     } else if (lootTable == null) {
       LootrAPI.LOG.error("Unable to fill loot container in {} at {} as the loot table is null and the provider is not a reference inventory!", level.dimension()
@@ -74,6 +82,11 @@ public class DefaultLootFiller implements LootFiller {
     setFillerState(new LootFillerState(provider, player, lootTableKey, lootTable, container, parameters, seed));
     lootTable.fill(container, parameters, seed);
     setFillerState(null);
+    // Lootr's own fills never keep banned stacks, also when not every loot roll is filtered (`filter_all_loot`)
+    // or when something added stacks after the roll. Removal is permanent by design.
+    if (ItemBans.isActive()) {
+      ItemBans.scrub(container);
+    }
   }
 
   public static void setFillerState(@Nullable LootFillerState newState) {

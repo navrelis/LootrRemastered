@@ -17,6 +17,7 @@ import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.api.filter.ILootrFilter;
+import noobanidus.mods.lootr.common.itemban.ItemBans;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinLootTable;
 import org.jetbrains.annotations.NotNull;
 
@@ -76,6 +77,9 @@ public class DefaultBrushableLootFiller implements LootFiller {
           break;
         }
       }
+
+      // Banned stacks are dropped before the item is chosen (no-op when no ban source is active).
+      ItemBans.removeBanned(items);
 
       ItemStack theItem = switch (items.size()) {
         case 0 -> ItemStack.EMPTY;

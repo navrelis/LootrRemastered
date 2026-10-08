@@ -103,4 +103,9 @@ public interface IPlatformAPI {
   void syncAfterTeamChange(String username);
 
   void alertContainerStatus(ServerPlayer player, ContainerStatus status, ContainerStatus.Type type, int remainingDuration);
+
+  // Has a default so that existing implementations keep compiling and linking.
+  default boolean isModLoaded(String modId) {
+    return false;
+  }
 }

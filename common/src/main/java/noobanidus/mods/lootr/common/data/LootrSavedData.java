@@ -14,6 +14,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
 import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.api.data.*;
+import noobanidus.mods.lootr.common.itemban.ItemBans;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -150,8 +151,22 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
     LootrInventory inventory = inventories.get(id);
     if (inventory != null) {
       inventory.setInfo(this);
+      // Every stored per-player inventory is handed out through here (opening, commands, pots, brushables,
+      // item frames, minecarts), so this is where inventories saved before an item was banned are cleaned.
+      if (ItemBans.isScrubbingSavedInventories()) {
+        removeBannedItems(inventory, id);
+      }
     }
     return inventory;
+  }
+
+  // Deleting a banned stack is permanent by design: it is not kept anywhere and does not come back when the
+  // ban is lifted. Nothing is re-rolled. `LootrInventory::setItem` marks this data as changed, so it is saved.
+  private void removeBannedItems(LootrInventory inventory, UUID id) {
+    int removed = ItemBans.scrub(inventory);
+    if (removed > 0) {
+      LootrAPI.LOG.debug("Removed {} banned item stack(s) from the inventory of {} in Lootr container {}.", removed, id, getInfoUUID());
+    }
   }
 
   @Override
@@ -160,6 +175,10 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
       LootrInventory result = new LootrInventory(this, provider.buildInitialInventory());
       if (!LootrAPI.isFakePlayer(player)) {
         filler.unpackLootTable(provider, player, result);
+        // A new inventory is handed out without passing `getInventory`; this also covers custom fillers.
+        if (ItemBans.isActive()) {
+          removeBannedItems(result, LootrAPI.resolveServerPlayerTeam(player));
+        }
       }
       inventories.put(LootrAPI.resolveServerPlayerTeam(player), result);
       hasBeenOpened = true;
@@ -175,6 +194,9 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
   public LootrInventory createInventory(ILootrInfoProvider provider, UUID playerId, LootFiller filler) {
     LootrInventory result = new LootrInventory(this, provider.buildInitialInventory());
     filler.unpackLootTable(provider, LootrAPI.getPlayer(playerId), result);
+    if (ItemBans.isActive()) {
+      removeBannedItems(result, playerId);
+    }
     inventories.put(playerId, result);
     hasBeenOpened = true;
     setDirty();

@@ -93,6 +93,9 @@ public final class VerifyReport {
   public static List<String> summary(VerifyResult result) {
     List<String> lines = new ArrayList<>();
     lines.add("Loot table verification finished in " + seconds(result.durationMillis()) + ": " + result.total(VerifyResult.ERROR) + " errors, " + result.total(VerifyResult.WARNING) + " warnings, " + result.total(VerifyResult.INFO) + " notes.");
+    if (result.lootRollsEmptied()) {
+      lines.add(emptiedRolls(result));
+    }
     Map<String, Integer> counts = new LinkedHashMap<>();
     for (SummaryRow row : result.summary()) {
       if (row.count() > 0 && !row.severity().equals(VerifyResult.INFO)) {
@@ -130,11 +133,25 @@ public final class VerifyReport {
     return String.format(Locale.ROOT, "%.1f s", millis / 1000.0);
   }
 
+  /**
+   * What there is to say when {@link VerifyResult#lootRollsEmptied()}: one statement at the top instead of one
+   * finding per loot table that nobody would trace back to a common cause.
+   */
+  private static String emptiedRolls(VerifyResult result) {
+    return "Loot rolls are being emptied: " + result.alwaysEmptyInRolls().size() + " of " + result.tablesSampled() + " sampled loot tables produced nothing in any roll, although each of them has entries that can."
+        + " Something takes the loot out of the rolls: most likely mods that change how loot tables are rolled and get in each other's way, or an item ban that covers nearly everything."
+        + " To narrow it down, set 'item_bans.filter_all_loot' to false in Lootr's configuration and run the verification again."
+        + " Until this is solved the findings 'always_empty_in_rolls' say nothing about the single loot tables.";
+  }
+
   // ----- Markdown -----
 
   public static String markdown(VerifyResult result) {
     StringBuilder out = new StringBuilder();
     out.append("# Lootr loot table verification\n\n");
+    if (result.lootRollsEmptied()) {
+      out.append("**Warning: ").append(emptiedRolls(result)).append("**\n\n");
+    }
     header(out, result);
 
     out.append("\n## Summary\n\n| Finding class | Severity | Count |\n|---|---|---:|\n");
@@ -225,7 +242,7 @@ public final class VerifyReport {
     result.legacyFolders().forEach(finding -> counts.computeIfAbsent(finding.origin(), ignored -> new int[2])[1] += finding.count());
     result.cannotProduce().stream().filter(finding -> finding.severity().equals(VerifyResult.WARNING)).forEach(finding -> counts.computeIfAbsent(finding.origin(), ignored -> new int[2])[1]++);
     result.rollErrors().forEach(finding -> counts.computeIfAbsent(finding.origin(), ignored -> new int[2])[1]++);
-    result.alwaysEmptyInRolls().forEach(finding -> counts.computeIfAbsent(finding.origin(), ignored -> new int[2])[1]++);
+    result.alwaysEmptyInRolls().stream().filter(finding -> finding.severity().equals(VerifyResult.WARNING)).forEach(finding -> counts.computeIfAbsent(finding.origin(), ignored -> new int[2])[1]++);
     for (IntegratedLootIssue issue : result.integratedLootIssues()) {
       if (!issue.severity().equals(VerifyResult.INFO)) {
         counts.computeIfAbsent(issue.origin(), ignored -> new int[2])[issue.severity().equals(VerifyResult.ERROR) ? 0 : 1]++;
@@ -264,8 +281,11 @@ public final class VerifyReport {
     out.append("Every loot table that a structure container uses and every `chests/` loot table was rolled ").append(rolls.requested()).append(" times at the world spawn, without integrated loot and without explorer maps (").append(rolls.mapsSuppressed()).append(" maps skipped). Not rolled: ").append(rolls.skippedOtherType()).append(" tables whose type needs more than a position, ").append(rolls.skippedNoProducing()).append(" listed above as unable to produce.\n");
     out.append("\n#### A roll threw an exception (`roll_error`, warning)\n");
     groups(out, result, result.rollErrors(), RollError::origin, VerifyReport::line);
-    out.append("\n#### No roll produced an item (`always_empty_in_rolls`, warning)\n");
-    groups(out, result, result.alwaysEmptyInRolls(), AlwaysEmpty::origin, VerifyReport::line);
+    out.append("\n#### No roll produced an item: used by a structure container (`always_empty_in_rolls`, warning)\n");
+    groups(out, result, result.alwaysEmptyInRolls().stream().filter(finding -> finding.severity().equals(VerifyResult.WARNING)).toList(), AlwaysEmpty::origin, VerifyReport::line);
+    out.append("\n#### No roll produced an item: not used by a structure container (`always_empty_in_rolls`, info)\n\n");
+    out.append("A few rolls cannot tell a rare drop from none, least of all for a table that is only a part of other tables.\n\n");
+    countsByOrigin(out, result, result.alwaysEmptyInRolls().stream().filter(finding -> finding.severity().equals(VerifyResult.INFO)).map(AlwaysEmpty::origin).toList());
     if (!rolls.slowTables().isEmpty()) {
       out.append("\n#### Rolls cut short because one roll took very long\n\n");
       limited(out, rolls.slowTables(), VerifyReport::line);
@@ -486,6 +506,8 @@ public final class VerifyReport {
     rolls.addProperty("maps_suppressed", result.rolls().mapsSuppressed());
     rolls.addProperty("skipped_other_type", result.rolls().skippedOtherType());
     rolls.addProperty("skipped_cannot_produce", result.rolls().skippedNoProducing());
+    rolls.addProperty("tables_sampled", result.tablesSampled());
+    rolls.addProperty("emptied", result.lootRollsEmptied());
     rolls.add("slow_tables", array(result.rolls().slowTables(), roll -> {
       JsonObject json = new JsonObject();
       json.addProperty("table", roll.table());
@@ -598,6 +620,7 @@ public final class VerifyReport {
       json.addProperty("table", finding.table());
       json.addProperty("origin", finding.origin());
       json.addProperty("rolls", finding.rolls());
+      json.addProperty("severity", finding.severity());
       json.add("used_by", strings(finding.usedBy()));
       return json;
     }));

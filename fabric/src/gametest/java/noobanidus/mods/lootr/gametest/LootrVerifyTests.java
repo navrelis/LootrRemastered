@@ -32,12 +32,20 @@ import noobanidus.mods.lootr.common.verify.PackOrigin;
 import noobanidus.mods.lootr.common.verify.VerifyOptions;
 import noobanidus.mods.lootr.common.verify.VerifyReport;
 import noobanidus.mods.lootr.common.verify.VerifyResult;
+import noobanidus.mods.lootr.common.verify.VerifyResult.AlwaysEmpty;
 import noobanidus.mods.lootr.common.verify.VerifyResult.BanInfo;
 import noobanidus.mods.lootr.common.verify.VerifyResult.IntegratedInfo;
 import noobanidus.mods.lootr.common.verify.VerifyResult.LoadFailure;
 import noobanidus.mods.lootr.common.verify.VerifyResult.OriginInfo;
+import noobanidus.mods.lootr.common.verify.VerifyResult.RollError;
 import noobanidus.mods.lootr.common.verify.VerifyResult.RollInfo;
 import noobanidus.mods.lootr.common.verify.VerifyResult.Scanned;
+import noobanidus.mods.lootr.common.verify.VerifyResult.SummaryRow;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -60,7 +69,8 @@ import java.util.function.Predicate;
  * <ul>
  * <li>`loot_table/verify/`: tables that fail to load (unknown item, broken JSON, unknown entry type), tables with
  * unmet load conditions, tables that cannot produce, one that never drops, one that throws when rolled, one with
- * banned items and one that refers to missing tables.</li>
+ * banned items and one that refers to missing tables; `chests/unused_never_drops` never drops either and is used
+ * by nothing.</li>
  * <li>`loot_tables/verify/`: two files in the folder the game no longer reads.</li>
  * <li>`structure/verify/containers.nbt`: a structure template with one block per case. It was written once by a
  * throw-away program (plain NBT, gzip without a time stamp, so the bytes are reproducible) and checked in. Along x:
@@ -86,6 +96,8 @@ public class LootrVerifyTests implements FabricGameTest {
   private static final String BATCH = "lootr_verify";
   private static final String RUN_BATCH = "lootr_verify_run";
   private static final String REPEAT_BATCH = "lootr_verify_repeat";
+  private static final String EMPTIED_BATCH = "lootr_verify_emptied";
+  private static final String CONSOLE_BATCH = "lootr_verify_console";
   private static final int RUN_TIMEOUT_SECONDS = 120;
   private static final String NAMESPACE = "lootr_gametest:";
   // The origin key of everything in the test data pack: the id of the test mod.
@@ -170,7 +182,7 @@ public class LootrVerifyTests implements FabricGameTest {
       for (JsonElement element : report.getAsJsonArray("summary")) {
         JsonObject row = element.getAsJsonObject();
         JsonElement list = findings.get(row.get("class").getAsString());
-        if (list.isJsonArray() && List.of("load_failure", "skipped_by_condition", "missing_reference", "banned_item", "roll_error", "always_empty_in_rolls", "internal_error").contains(row.get("class").getAsString())) {
+        if (list.isJsonArray() && List.of("load_failure", "skipped_by_condition", "missing_reference", "banned_item", "roll_error", "internal_error").contains(row.get("class").getAsString())) {
           helper.assertTrue(row.get("count").getAsInt() == list.getAsJsonArray().size(), "The summary row " + row + " does not match its list");
         }
       }
@@ -350,10 +362,19 @@ public class LootrVerifyTests implements FabricGameTest {
       helper.assertTrue(thrown.get("exception").getAsString().equals("java.util.NoSuchElementException") && thrown.get("type").getAsString().equals("minecraft:generic"), "Unexpected finding " + thrown);
       helper.assertTrue(errors.size() == 1, "Expected exactly one roll error but got " + errors);
 
+      // A warning for the table a structure container uses, a note for the `chests/` table that nothing uses.
       JsonArray empty = findings(report, "always_empty_in_rolls");
       JsonObject never = one(empty, "table", NAMESPACE + "verify/never_drops");
-      helper.assertTrue(never.get("rolls").getAsInt() == 3 && strings(never.getAsJsonArray("used_by")).equals(List.of("minecraft:chest")), "Unexpected finding " + never);
-      helper.assertTrue(empty.size() == 1, "Expected exactly one always empty table but got " + empty);
+      helper.assertTrue(never.get("rolls").getAsInt() == 3 && strings(never.getAsJsonArray("used_by")).equals(List.of("minecraft:chest")) && never.get("severity").getAsString().equals("warning"), "Unexpected finding " + never);
+      JsonObject unused = one(empty, "table", NAMESPACE + "verify/chests/unused_never_drops");
+      helper.assertTrue(unused.get("rolls").getAsInt() == 3 && unused.getAsJsonArray("used_by").isEmpty() && unused.get("severity").getAsString().equals("info"), "Unexpected finding " + unused);
+      helper.assertTrue(empty.size() == 2, "Expected exactly two always empty tables but got " + empty);
+      helper.assertTrue(count(report, "always_empty_in_rolls", "warning") == 1 && count(report, "always_empty_in_rolls", "info") == 1, "The summary does not count them by severity");
+      helper.assertTrue(markdown.contains("- `" + NAMESPACE + "verify/never_drops`: empty in 3 rolls, used by `minecraft:chest`") && !markdown.contains("verify/chests/unused_never_drops"), "The warning is not listed, or the note is listed instead of counted");
+      // Two empty tables among all that were rolled are no sign of anything that empties the rolls.
+      // Sampled: all that were rolled but the one that threw and any that were cut short.
+      helper.assertTrue(rolls.get("tables_sampled").getAsInt() == rolls.get("tables_rolled").getAsInt() - 1 - rolls.getAsJsonArray("slow_tables").size() && !rolls.get("emptied").getAsBoolean() && !sharedResult.lootRollsEmptied(), "Unexpected figures of the sampled tables " + rolls);
+      helper.assertTrue(!markdown.contains("Loot rolls are being emptied") && FIRST_COMMAND.stream().noneMatch(line -> line.contains("Loot rolls are being emptied")), "The report says that loot rolls are emptied although they are not");
 
       // integrated/target_a is extended and was rolled three times; the rolls went past integrated loot.
       IntegratedLoot.Stats stats = IntegratedLoot.stats();
@@ -501,6 +522,113 @@ public class LootrVerifyTests implements FabricGameTest {
     helper.succeed();
   }
 
+  // ----- rolls that are emptied -----
+
+  // Something that swallows the output of every roll (here the test mixin, told to drop what it captured) is named
+  // once at the top of the report and of the summary, not only as one finding per loot table.
+  @GameTest(template = EMPTY_STRUCTURE, batch = EMPTIED_BATCH)
+  public void emptiedLootRollsAreNamedAtTheTop(GameTestHelper helper) {
+    MinecraftServer server = helper.getLevel().getServer();
+    VerifyResult before = LootVerifier.lastResult().orElse(null);
+    List<String> output = new ArrayList<>();
+    CapturingLootConsumer.setDiscarding(true);
+    try {
+      run(server, "lootr verify rolls 2", 2, output);
+      helper.assertTrue(LootVerifier.isRunning(), "The command started nothing: " + output);
+      waitForRun(server);
+    } finally {
+      CapturingLootConsumer.setDiscarding(false);
+    }
+    VerifyResult result = LootVerifier.lastResult().orElse(null);
+    helper.assertTrue(!LootVerifier.isRunning() && result != null && result != before && result.files() != null, "The run left no result: " + output);
+
+    int sampled = result.tablesSampled();
+    helper.assertTrue(sampled >= VerifyResult.EMPTIED_MIN_TABLES && result.alwaysEmptyInRolls().size() == sampled && result.lootRollsEmptied(), "Expected every sampled table to be empty but got " + result.alwaysEmptyInRolls().size() + " of " + sampled);
+    List<String> summary = VerifyReport.summary(result);
+    String statement = summary.get(1);
+    helper.assertTrue(statement.startsWith("Loot rolls are being emptied: " + sampled + " of " + sampled + " sampled loot tables produced nothing in any roll") && statement.contains("'item_bans.filter_all_loot'") && statement.contains("mods that change how loot tables are rolled"), "The summary does not name the emptied rolls in its second line: " + summary);
+    helper.assertTrue(output.contains(statement), "The command did not print the statement: " + output);
+    List<String> markdown = read(result.files().markdown()).lines().toList();
+    helper.assertTrue(markdown.get(0).equals("# Lootr loot table verification") && markdown.get(2).equals("**Warning: " + statement + "**"), "The report does not start with the statement: " + markdown.subList(0, 4));
+    JsonObject report = JsonParser.parseString(read(result.files().json())).getAsJsonObject();
+    helper.assertTrue(report.getAsJsonObject("rolls").get("emptied").getAsBoolean() && report.getAsJsonObject("rolls").get("tables_sampled").getAsInt() == sampled, "The JSON report does not say that the rolls are emptied");
+
+    // The single findings stay: warnings for the tables that structure containers use, notes for the others.
+    int warnings = 0;
+    int infos = 0;
+    for (JsonElement element : findings(report, "always_empty_in_rolls")) {
+      JsonObject finding = element.getAsJsonObject();
+      boolean used = !finding.getAsJsonArray("used_by").isEmpty();
+      helper.assertTrue(finding.get("severity").getAsString().equals(used ? "warning" : "info"), "Unexpected severity of " + finding);
+      warnings += used ? 1 : 0;
+      infos += used ? 0 : 1;
+    }
+    helper.assertTrue(warnings > 0 && infos > 0 && warnings + infos == sampled, "Expected tables of both kinds but got " + warnings + " and " + infos);
+    helper.assertTrue(count(report, "always_empty_in_rolls", "warning") == warnings && count(report, "always_empty_in_rolls", "info") == infos, "The summary does not count them by severity");
+    helper.succeed();
+  }
+
+  // The statement needs enough sampled tables and nearly all of them empty. Pure.
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void emptiedRollsNeedManyTablesNearlyAllOfThemEmpty(GameTestHelper helper) {
+    helper.assertTrue(VerifyResult.EMPTIED_MIN_TABLES == 20 && VerifyResult.EMPTIED_PERCENT == 90, "The thresholds changed");
+    helper.assertTrue(rolledResult(20, 18, 0).lootRollsEmptied() && !rolledResult(20, 17, 0).lootRollsEmptied(), "18 of 20 empty tables are 90 percent, 17 are not");
+    helper.assertTrue(rolledResult(1000, 900, 0).lootRollsEmptied() && !rolledResult(1000, 899, 0).lootRollsEmptied(), "900 of 1000 empty tables are 90 percent, 899 are not");
+    helper.assertTrue(!rolledResult(19, 19, 0).lootRollsEmptied() && !rolledResult(0, 0, 0).lootRollsEmptied(), "Fewer than 20 sampled tables say nothing");
+    // A table whose roll threw was not sampled.
+    VerifyResult withErrors = rolledResult(22, 18, 2);
+    helper.assertTrue(withErrors.tablesSampled() == 20 && withErrors.lootRollsEmptied() && !rolledResult(21, 18, 0).lootRollsEmptied(), "Roll errors are counted as sampled tables");
+
+    VerifyResult emptied = rolledResult(100, 95, 0);
+    String statement = VerifyReport.summary(emptied).get(1);
+    helper.assertTrue(statement.startsWith("Loot rolls are being emptied: 95 of 100 sampled loot tables produced nothing in any roll"), "Unexpected second summary line: " + statement);
+    helper.assertTrue(VerifyReport.markdown(emptied).lines().toList().get(2).equals("**Warning: " + statement + "**") && VerifyReport.json(emptied).getAsJsonObject("rolls").get("emptied").getAsBoolean(), "The reports do not carry the statement");
+    VerifyResult fine = rolledResult(100, 5, 0);
+    helper.assertTrue(VerifyReport.summary(fine).stream().noneMatch(line -> line.contains("emptied")) && !VerifyReport.markdown(fine).contains("emptied") && !VerifyReport.json(fine).getAsJsonObject("rolls").get("emptied").getAsBoolean(), "A few empty tables are reported as emptied rolls");
+
+    // Every second synthetic table is used by a chest: those are warnings and are listed, the others are counted.
+    helper.assertTrue(fine.summary().contains(new SummaryRow(VerifyResult.ALWAYS_EMPTY_IN_ROLLS, VerifyResult.WARNING, 3)) && fine.summary().contains(new SummaryRow(VerifyResult.ALWAYS_EMPTY_IN_ROLLS, VerifyResult.INFO, 2)) && fine.total(VerifyResult.WARNING) == 3, "The summary does not split the empty tables by severity: " + fine.summary());
+    List<String> lines = VerifyReport.markdown(fine).lines().toList();
+    helper.assertTrue(lines.contains("- `zeta:empty_00`: empty in 3 rolls, used by `minecraft:chest`") && lines.stream().noneMatch(line -> line.contains("zeta:empty_01")) && lines.contains("| Alpha Mod (zeta 1.0) | 0 | 3 |") && lines.contains("| Alpha Mod (zeta 1.0) | 2 |"), "The Markdown report does not list the warnings and count the notes");
+    helper.succeed();
+  }
+
+  // The summary is in the log once whoever runs the command: the server console writes what it is sent to the log
+  // itself, any other source only receives it.
+  @GameTest(template = EMPTY_STRUCTURE, batch = CONSOLE_BATCH)
+  public void summaryIsLoggedOnce(GameTestHelper helper) {
+    MinecraftServer server = helper.getLevel().getServer();
+    for (boolean console : new boolean[]{true, false}) {
+      VerifyResult before = LootVerifier.lastResult().orElse(null);
+      List<String> output = new ArrayList<>();
+      LogCapture log = new LogCapture();
+      Logger root = (Logger) LogManager.getRootLogger();
+      log.start();
+      root.addAppender(log);
+      try {
+        if (console) {
+          server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "lootr verify");
+        } else {
+          run(server, "lootr verify", 2, output);
+        }
+        helper.assertTrue(LootVerifier.isRunning(), "The command started nothing");
+        waitForRun(server);
+      } finally {
+        root.removeAppender(log);
+        log.stop();
+      }
+      VerifyResult result = LootVerifier.lastResult().orElse(null);
+      helper.assertTrue(!LootVerifier.isRunning() && result != null && result != before, "The run left no result");
+      String who = console ? "the server console" : "another source";
+      for (String line : VerifyReport.summary(result)) {
+        long logged = log.messages.stream().filter(line::equals).count();
+        helper.assertTrue(logged == 1, "Run from " + who + ", the summary line was logged " + logged + " times: " + line);
+        helper.assertTrue(console || output.contains(line), "The source did not receive the summary line: " + line);
+      }
+    }
+    helper.succeed();
+  }
+
   // ----- pure parts -----
 
   // What happens at server start is decided from the two system properties alone.
@@ -625,6 +753,40 @@ public class LootrVerifyTests implements FabricGameTest {
       failures.add(new LoadFailure(String.format("zeta:table_%02d", i), "zeta", String.format("data/zeta/loot_table/table_%02d.json", i), VerifyResult.UNKNOWN_ITEM, "Failed to parse", List.of("absent:gem"), ""));
     }
     return new VerifyResult(startedAt, ZoneOffset.UTC, "2.0.0", "1.21.1", durationMillis, List.of(), new Scanned(10, 10 + failures.size(), 0, 0, 0), new BanInfo(false, false, List.of()), new IntegratedInfo(true, 0, 0, 0, 0, 0, 0), new RollInfo(0, 0, 0, 0, 0, 0, List.of()), origins, failures, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), null);
+  }
+
+  /**
+   * A result with nothing but sample rolls: so many tables rolled three times, so many of them always empty (every
+   * second one, starting with the first, is used by a chest) and so many with a roll error.
+   */
+  private static VerifyResult rolledResult(int tables, int empty, int errors) {
+    Map<String, OriginInfo> origins = new TreeMap<>();
+    origins.put("zeta", new OriginInfo(PackOrigin.mod("zeta", "Alpha Mod", "1.0"), List.of("zeta")));
+    List<AlwaysEmpty> alwaysEmpty = new ArrayList<>();
+    for (int i = 0; i < empty; i++) {
+      alwaysEmpty.add(new AlwaysEmpty(String.format("zeta:empty_%02d", i), "zeta", 3, i % 2 == 0 ? List.of("minecraft:chest") : List.of()));
+    }
+    List<RollError> rollErrors = new ArrayList<>();
+    for (int i = 0; i < errors; i++) {
+      rollErrors.add(new RollError(String.format("zeta:error_%02d", i), "zeta", "minecraft:chest", "java.lang.IllegalStateException", ""));
+    }
+    return new VerifyResult(Instant.parse("2026-01-02T03:04:05Z"), ZoneOffset.UTC, "2.0.0", "1.21.1", 1500L, List.of(), new Scanned(tables, tables, 0, 0, 0), new BanInfo(false, false, List.of()), new IntegratedInfo(true, 0, 0, 0, 0, 0, 0), new RollInfo(3, tables, tables * 3, 0, 0, 0, List.of()), origins, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), rollErrors, alwaysEmpty, List.of(), List.of(), List.of(), List.of(), null);
+  }
+
+  /**
+   * Collects the text of everything that is logged while it is attached to a logger.
+   */
+  private static final class LogCapture extends AbstractAppender {
+    private final List<String> messages = new CopyOnWriteArrayList<>();
+
+    private LogCapture() {
+      super("lootr_gametest_capture", null, null, true, Property.EMPTY_ARRAY);
+    }
+
+    @Override
+    public void append(LogEvent event) {
+      messages.add(event.getMessage().getFormattedMessage());
+    }
   }
 
   /**

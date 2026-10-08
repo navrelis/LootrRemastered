@@ -99,10 +99,11 @@ public final class ItemBans {
   }
 
   /**
-   * @return true if every loot table roll is filtered ({@link #isActive()} and the option `filter_all_loot`).
+   * @return true if every loot table roll is filtered ({@link #isActive()}, the option `filter_all_loot`, and the
+   * hook in the loot table class is in place, see {@link LootRollHook}).
    */
   public static boolean isFilteringAllLoot() {
-    return state.filterAllLoot;
+    return state.filterAllLoot && !LootRollHook.isMissing();
   }
 
   /**

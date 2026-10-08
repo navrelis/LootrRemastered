@@ -6,6 +6,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import noobanidus.mods.lootr.common.api.LootrAPI;
+import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinCommandSourceStack;
 
 /**
  * `/lootr verify` and `/lootr verify rolls &lt;n&gt;`: starts a loot table verification (see {@link LootVerifier})
@@ -35,8 +36,12 @@ public final class VerifyCommand {
 
       @Override
       public void finished(VerifyResult result) {
+        // The summary belongs in the log once. The server console writes there itself whatever it is sent.
+        boolean console = ((AccessorMixinCommandSourceStack) source).lootr$getSource() == source.getServer();
         for (String line : VerifyReport.summary(result)) {
-          LootrAPI.LOG.info(line);
+          if (!console) {
+            LootrAPI.LOG.info(line);
+          }
           source.sendSystemMessage(Component.literal(line));
         }
       }

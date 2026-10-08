@@ -193,12 +193,12 @@ The report has a header (versions, duration, number of scanned files, item ban s
 | B | `legacy_folder` | Files in `loot_tables/` (the folder before 1.21); the game ignores them. Says if the same id exists in `loot_table/`. |
 | C | `missing_reference` | References to loot tables that do not exist: nested tables, `set_loot_table`, container loot components, structure templates (`.nbt`), worldgen files. |
 | D | `banned_item` (info) | Loot table entries that name a banned item or a tag with banned members. Only when a ban source is active. |
-| E | `cannot_produce` | Tables that cannot yield anything judged from their entries (no pools, only empty entries, only banned items, only references to such tables). Warning if a structure container uses the table. With rolls: `roll_error` (a roll threw an exception) and `always_empty_in_rolls` (no roll produced an item). |
+| E | `cannot_produce` | Tables that cannot yield anything judged from their entries (no pools, only empty entries, only banned items, only references to such tables). Warning if a structure container uses the table. With rolls: `roll_error` (a roll threw an exception) and `always_empty_in_rolls` (no roll produced an item; warning if a structure container uses the table, info otherwise). |
 | F | `no_integrated_loot` | For each loot table that a structure container uses: `extended`, `excluded`, `rule_problem` (a rule matches but has no effect), `not_applicable` (only pots or brushable blocks, no room for extra stacks), `no_rule`. A coverage table per origin. |
 | G | `integrated_loot_data` | Pool and rule file problems: malformed files, inactive rule files (missing mod or namespace), patterns that match no table, dropped sources, pools without usable source, matches of tables of another type. |
 | - | `internal_error` | Something the verification itself could not do; the rest is unaffected. |
 
-Findings have the severity error, warning or info. Rolls use the world spawn as the position, no integrated loot and no explorer maps; tables whose type needs more than a position are not rolled and are counted in the report; a table whose roll takes very long is cut short and listed.
+Findings have the severity error, warning or info. Rolls use the world spawn as the position, no integrated loot and no explorer maps; tables whose type needs more than a position are not rolled and are counted in the report; a table whose roll takes very long is cut short and listed. If at least 20 tables were sampled and at least 90 % of them were empty in every roll, the report and the summary say so at the top: the tables are not at fault then, something empties the loot rolls (usually mods that change loot rolls and get in each other's way).
 
 ## Building and testing
 

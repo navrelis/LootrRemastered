@@ -81,6 +81,10 @@ public record VerifyResult(
   public static final String UNUSABLE_POOL = "unusable_pool";
   public static final String INELIGIBLE_MATCH = "ineligible_match";
 
+  // The thresholds of lootRollsEmptied().
+  public static final int EMPTIED_MIN_TABLES = 20;
+  public static final int EMPTIED_PERCENT = 90;
+
   /**
    * @param loadedTables     loot tables in the registry.
    * @param tableFiles       loot table ids found as files under `loot_table/`.
@@ -180,7 +184,17 @@ public record VerifyResult(
   public record RollError(String table, String origin, String type, String exception, String message) {
   }
 
+  /**
+   * @param usedBy the structure containers that use it.
+   */
   public record AlwaysEmpty(String table, String origin, int rolls, List<String> usedBy) {
+    /**
+     * @return warning if a structure container uses the table, info otherwise: a few rolls cannot tell a rare drop
+     * from none, least of all for a table that is only a part of other tables.
+     */
+    public String severity() {
+      return usedBy.isEmpty() ? INFO : WARNING;
+    }
   }
 
   /**
@@ -235,7 +249,8 @@ public record VerifyResult(
     rows.add(new SummaryRow(CANNOT_PRODUCE, WARNING, count(cannotProduce.stream().map(CannotProduce::severity).toList(), WARNING)));
     rows.add(new SummaryRow(CANNOT_PRODUCE, INFO, count(cannotProduce.stream().map(CannotProduce::severity).toList(), INFO)));
     rows.add(new SummaryRow(ROLL_ERROR, WARNING, rollErrors.size()));
-    rows.add(new SummaryRow(ALWAYS_EMPTY_IN_ROLLS, WARNING, alwaysEmptyInRolls.size()));
+    rows.add(new SummaryRow(ALWAYS_EMPTY_IN_ROLLS, WARNING, count(alwaysEmptyInRolls.stream().map(AlwaysEmpty::severity).toList(), WARNING)));
+    rows.add(new SummaryRow(ALWAYS_EMPTY_IN_ROLLS, INFO, count(alwaysEmptyInRolls.stream().map(AlwaysEmpty::severity).toList(), INFO)));
     rows.add(new SummaryRow(NO_INTEGRATED_LOOT, INFO, count(containerTables.stream().map(ContainerTable::status).toList(), NO_RULE)));
     List<String> issueSeverities = integratedLootIssues.stream().map(IntegratedLootIssue::severity).toList();
     rows.add(new SummaryRow(INTEGRATED_LOOT_DATA, ERROR, count(issueSeverities, ERROR)));
@@ -254,6 +269,26 @@ public record VerifyResult(
    */
   public int total(String severity) {
     return summary().stream().filter(row -> row.severity().equals(severity)).mapToInt(SummaryRow::count).sum();
+  }
+
+  /**
+   * @return how many loot tables were rolled as often as asked for: all but those with a roll that threw or took
+   * very long.
+   */
+  public int tablesSampled() {
+    return rolls.tablesRolled() - rollErrors.size() - rolls.slowTables().size();
+  }
+
+  /**
+   * Only loot tables with entries that can produce are rolled. If nearly all of them stay empty all the same, the
+   * tables are not at fault: something takes the loot out of the rolls.
+   *
+   * @return true if at least {@link #EMPTIED_MIN_TABLES} loot tables were sampled and at least
+   * {@link #EMPTIED_PERCENT} percent of them were empty in every roll.
+   */
+  public boolean lootRollsEmptied() {
+    int sampled = tablesSampled();
+    return sampled >= EMPTIED_MIN_TABLES && alwaysEmptyInRolls.size() * 100L >= (long) sampled * EMPTIED_PERCENT;
   }
 
   /**

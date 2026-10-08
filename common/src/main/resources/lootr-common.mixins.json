@@ -2,11 +2,13 @@
   "required": true,
   "package": "noobanidus.mods.lootr.common.mixin",
   "compatibilityLevel": "JAVA_21",
+  "plugin": "noobanidus.mods.lootr.common.itemban.LootRollHook",
   "mixins": [
     "accessor.AccessorMixinBaseContainerBlockEntity",
     "accessor.AccessorMixinBlock",
     "accessor.AccessorMixinBrushableBlockEntity",
     "accessor.AccessorMixinChunkMap",
+    "accessor.AccessorMixinCommandSourceStack",
     "accessor.AccessorMixinDimensionDataStorage",
     "accessor.AccessorMixinFallingBlockEntity",
     "accessor.AccessorMixinItemFrame",

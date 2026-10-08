@@ -338,8 +338,10 @@ public class LootrItemBanTests implements FabricGameTest {
     Consumer<ItemStack> consumer = stack -> {
     };
     helper.assertTrue(ItemBans.wrapLootConsumer(consumer) == consumer, "The consumer was wrapped although no source is registered");
+    // The capturing consumer of the test mixin takes the place of the caller's consumer during the roll, so the
+    // probe watches there.
     FilterProbe inactive = new FilterProbe();
-    table.getRandomItemsRaw(params, inactive);
+    CapturingLootConsumer.withTap(inactive, () -> table.getRandomItemsRaw(params, consumer));
     helper.assertTrue(inactive.accepted == 2, "Expected two stacks from the test table but got " + inactive.accepted);
     helper.assertTrue(!inactive.calledThroughFilter, "The loot table mixin wrapped the consumer although no source is registered");
 
@@ -349,9 +351,44 @@ public class LootrItemBanTests implements FabricGameTest {
       helper.assertTrue(wrapped != consumer, "The consumer was not wrapped although a source is registered");
       helper.assertTrue(ItemBans.wrapLootConsumer(wrapped) == wrapped, "An already wrapped consumer was wrapped again");
       FilterProbe active = new FilterProbe();
-      table.getRandomItemsRaw(params, active);
+      CapturingLootConsumer.withTap(active, () -> table.getRandomItemsRaw(params, consumer));
       helper.assertTrue(active.accepted == 2 && active.calledThroughFilter, "The loot table mixin did not wrap the consumer although a source is registered");
     });
+    helper.succeed();
+  }
+
+  // i. Another mod may take over the output of a roll: it replaces the consumer argument of the roll and hands the
+  // stacks on at the end only if the argument is still its own (the test mixin does that to every roll). The item
+  // ban filter must leave that argument alone: every kind of roll still delivers the allowed items and none of the
+  // banned ones.
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void lootArrivesWhenAnotherModCapturesTheOutput(GameTestHelper helper) {
+    LootTable table = table(helper, "banned_and_allowed");
+    LootTable nested = table(helper, "nested_outer");
+    LootParams params = params(helper);
+    long releases = CapturingLootConsumer.releases();
+    helper.assertTrue(has(table.getRandomItems(params), ALLOWED) && CapturingLootConsumer.releases() > releases, "The test mixin that captures the output of a roll is not applied");
+
+    whileBanned("capture", BANNED, () -> whileBanned("capture_nested", NESTED_BANNED, () -> {
+      helper.assertTrue(ItemBans.isFilteringAllLoot(), "All-loot filtering should be on while a source is active");
+      for (int i = 0; i < ROLLS; i++) {
+        assertOnlyAllowed(helper, table.getRandomItems(params), "List roll " + i);
+        assertOnlyAllowed(helper, table.getRandomItems(params, i), "Seeded list roll " + i);
+        assertOnlyAllowed(helper, nested.getRandomItems(params), "Roll " + i + " of the table with a nested table");
+
+        // The way mob drops are rolled.
+        ObjectArrayList<ItemStack> dropped = new ObjectArrayList<>();
+        table.getRandomItems(params, i, dropped::add);
+        assertOnlyAllowed(helper, dropped, "Consumer roll " + i);
+        ObjectArrayList<ItemStack> raw = new ObjectArrayList<>();
+        table.getRandomItemsRaw(params, raw::add);
+        assertOnlyAllowed(helper, raw, "Raw roll " + i);
+
+        SimpleContainer container = new SimpleContainer(27);
+        table.fill(container, params, i);
+        helper.assertTrue(has(container, ALLOWED) && !has(container, BANNED), "Fill " + i + " does not hold exactly the allowed item");
+      }
+    }));
     helper.succeed();
   }
 
@@ -480,6 +517,11 @@ public class LootrItemBanTests implements FabricGameTest {
 
   private static boolean has(Container container, Item item) {
     return container.hasAnyMatching(stack -> stack.is(item));
+  }
+
+  private static void assertOnlyAllowed(GameTestHelper helper, List<ItemStack> rolled, String what) {
+    helper.assertTrue(has(rolled, ALLOWED), what + " lost the allowed item");
+    helper.assertTrue(!has(rolled, BANNED) && !has(rolled, NESTED_BANNED), what + " contains a banned item");
   }
 
   private static NonNullList<ItemStack> snapshot(Container container) {

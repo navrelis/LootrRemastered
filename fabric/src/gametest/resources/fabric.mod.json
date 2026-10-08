@@ -16,6 +16,9 @@
       "noobanidus.mods.lootr.gametest.LootrVerifyTests"
     ]
   },
+  "mixins": [
+    "lootr_gametest.mixins.json"
+  ],
   "depends": {
     "lootr": "*"
   }

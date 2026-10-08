@@ -1,6 +1,7 @@
 {
   "entries": [
     { "tables": ["minecraft:chests/spawn_bonus_chest", "minecraft:chests/jungle_temple_dispenser"], "exclude": true },
+    { "tables": ["minecraft:dispensers/**"], "exclude": true },
     { "tables": ["minecraft:chests/trial_chambers/reward_ominous"], "pool": "lootr:overworld_rare", "rolls": 2 },
     { "tables": ["minecraft:chests/trial_chambers/reward"], "pool": "lootr:overworld_rare", "rolls": 1 },
     { "tables": ["minecraft:chests/trial_chambers/reward_*"], "exclude": true },

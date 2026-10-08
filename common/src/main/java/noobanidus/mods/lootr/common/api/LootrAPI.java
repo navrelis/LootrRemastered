@@ -79,6 +79,8 @@ public class LootrAPI {
 
   public static ILootrAPI INSTANCE = null;
   public static boolean shouldDiscardIdAndOpeners;
+  // The same switch for the calling thread only; this is what the mod itself uses (see `setDiscardingIdAndOpeners`).
+  private static final ThreadLocal<Boolean> DISCARDING_ID_AND_OPENERS = new ThreadLocal<>();
   public static @Nullable SyncedConfig SYNCED_CONFIG;
 
   public static boolean isReady() {
@@ -131,6 +133,20 @@ public class LootrAPI {
 
   public static boolean shouldDiscard() {
     return INSTANCE.shouldDiscard();
+  }
+
+  // While set, block entities saved by the calling thread leave out their container id (structure saving).
+  // Other threads, which may be saving chunks at the same time, are not affected. Reset it in a `finally`.
+  public static void setDiscardingIdAndOpeners(boolean discard) {
+    if (discard) {
+      DISCARDING_ID_AND_OPENERS.set(true);
+    } else {
+      DISCARDING_ID_AND_OPENERS.remove();
+    }
+  }
+
+  public static boolean isDiscardingIdAndOpeners() {
+    return DISCARDING_ID_AND_OPENERS.get() != null;
   }
 
   public static float getExplosionResistance(Block block, float defaultResistance) {
@@ -437,6 +453,16 @@ public class LootrAPI {
     return INSTANCE.getData(provider);
   }
 
+  @Nullable
+  public static ILootrSavedData getLoadedData(String key) {
+    return INSTANCE.getLoadedData(key);
+  }
+
+  @Nullable
+  public static ILootrSavedData getExistingData(String key) {
+    return INSTANCE.getExistingData(key);
+  }
+
   @Deprecated
   public static boolean isAwarded(ILootrInfoProvider provider, ServerPlayer player) {
     return INSTANCE.isAwarded(provider, player);
@@ -657,7 +683,8 @@ public class LootrAPI {
     return INSTANCE.resolveClientPlayerTeam(player);
   }
 
-  private static Container closingContainer = null;
+  // Guards against re-entry while a container is being closed. Per thread: this is also reached from other threads.
+  private static final ThreadLocal<Container> CLOSING_CONTAINER = new ThreadLocal<>();
 
   public static void closeContainers(BlockEntity blockEntity) {
     Level level = blockEntity.getLevel();
@@ -666,36 +693,38 @@ public class LootrAPI {
       return;
     }
 
-    if (container.equals(closingContainer)) {
+    if (container.equals(CLOSING_CONTAINER.get())) {
       return;
     }
 
     AABB aabb = new AABB(blockEntity.getBlockPos()).inflate(8.5);
     List<Player> players = level.getEntities(EntityTypeTest.forClass(Player.class), aabb, (a) -> true);
 
-    closingContainer = container;
+    CLOSING_CONTAINER.set(container);
 
-    for (Player player : players) {
-      if (!player.hasContainerOpen() || !(player instanceof ServerPlayer sPlayer)) {
-        continue;
-      }
+    try {
+      for (Player player : players) {
+        if (!player.hasContainerOpen() || !(player instanceof ServerPlayer sPlayer)) {
+          continue;
+        }
 
-      if (player.containerMenu instanceof ChestMenu chestMenu) {
-        if (chestMenu.getContainer().equals(container)) {
-          sPlayer.closeContainer();
-          sPlayer.displayClientMessage(Component.translatable("lootr.message.emergency_conversion"), true);
-          LootrRegistry.getTrapdoorTrigger().trigger(sPlayer);
-        }
-      } else if (player.containerMenu instanceof ShulkerBoxMenu shulkerMenu) {
-        if (((AccessorMixinShulkerBoxMenu) shulkerMenu).lootr$getShulkerMenuContainer().equals(container)) {
-          sPlayer.closeContainer();
-          sPlayer.displayClientMessage(Component.translatable("lootr.message.emergency_conversion"), true);
-          LootrRegistry.getTrapdoorTrigger().trigger(sPlayer);
+        if (player.containerMenu instanceof ChestMenu chestMenu) {
+          if (chestMenu.getContainer().equals(container)) {
+            sPlayer.closeContainer();
+            sPlayer.displayClientMessage(Component.translatable("lootr.message.emergency_conversion"), true);
+            LootrRegistry.getTrapdoorTrigger().trigger(sPlayer);
+          }
+        } else if (player.containerMenu instanceof ShulkerBoxMenu shulkerMenu) {
+          if (((AccessorMixinShulkerBoxMenu) shulkerMenu).lootr$getShulkerMenuContainer().equals(container)) {
+            sPlayer.closeContainer();
+            sPlayer.displayClientMessage(Component.translatable("lootr.message.emergency_conversion"), true);
+            LootrRegistry.getTrapdoorTrigger().trigger(sPlayer);
+          }
         }
       }
+    } finally {
+      CLOSING_CONTAINER.remove();
     }
-
-    closingContainer = null;
   }
 
   public static Set<ResourceKey<LootTable>> gatherProblematicLootTables() {

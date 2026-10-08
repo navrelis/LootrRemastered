@@ -14,9 +14,11 @@ import org.spongepowered.asm.mixin.injection.At;
 public class MixinStructureTemplate {
   @WrapOperation(method = "fillFromWorld", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/BlockEntity;saveWithId(Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/nbt/CompoundTag;"))
   private CompoundTag LootrInjectStructureSavingStart(BlockEntity instance, HolderLookup.Provider provider, Operation<CompoundTag> original) {
-    LootrAPI.shouldDiscardIdAndOpeners = true;
-    CompoundTag result = original.call(instance, provider);
-    LootrAPI.shouldDiscardIdAndOpeners = false;
-    return result;
+    LootrAPI.setDiscardingIdAndOpeners(true);
+    try {
+      return original.call(instance, provider);
+    } finally {
+      LootrAPI.setDiscardingIdAndOpeners(false);
+    }
   }
 }

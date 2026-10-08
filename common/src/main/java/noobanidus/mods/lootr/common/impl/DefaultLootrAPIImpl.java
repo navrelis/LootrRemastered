@@ -162,7 +162,9 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
       return;
     }
 
-    if (LootrAPI.getCurrentTicks() % (LootrAPI.getTickDelay() + provider.getRandomOffset()) == 0) {
+    // 0 is possible (`tickDelay` 0 and no random offset) and means "every tick"; it must not be divided by.
+    int interval = LootrAPI.getTickDelay() + provider.getRandomOffset();
+    if (interval == 0 || LootrAPI.getCurrentTicks() % interval == 0) {
       if (LootrAPI.isAnythingDecaying() && provider.canDecay() && provider.hasBeenOpened() && (LootrAPI.shouldPerformDecayWhileTicking() || LootrAPI.shouldStartDecayWhileTicking())) {
         boolean isDecayed = LootrAPI.isDecayed(provider);
         if (LootrAPI.shouldPerformDecayWhileTicking() && isDecayed) {
@@ -272,8 +274,18 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
   }
 
   @Override
+  public final @Nullable ILootrSavedData getLoadedData(String key) {
+    return DataStorage.getLoadedData(key);
+  }
+
+  @Override
+  public final @Nullable ILootrSavedData getExistingData(String key) {
+    return DataStorage.getExistingData(key);
+  }
+
+  @Override
   public final boolean shouldDiscard() {
-    return LootrAPI.shouldDiscardIdAndOpeners;
+    return LootrAPI.shouldDiscardIdAndOpeners || LootrAPI.isDiscardingIdAndOpeners();
   }
 
   @Override
@@ -548,9 +560,7 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
       return false;
     }
 
-    var tag = server.registryAccess().registryOrThrow(Registries.STRUCTURE)
-        .getTag(LootrTags.Structure.REFRESH_STRUCTURES);
-    return tag.isPresent();
+    return hasTaggedStructures(server, LootrTags.Structure.REFRESH_STRUCTURES);
   }
 
   @Override
@@ -576,9 +586,12 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
       return false;
     }
 
-    var tag = server.registryAccess().registryOrThrow(Registries.STRUCTURE)
-        .getTag(LootrTags.Structure.DECAY_STRUCTURES);
-    return tag.isPresent();
+    return hasTaggedStructures(server, LootrTags.Structure.DECAY_STRUCTURES);
+  }
+
+  // The mod ships these tags empty, so a tag that merely exists says nothing (confer `BlockEntityTicker.checkStructureValidity`).
+  public static boolean hasTaggedStructures(MinecraftServer server, TagKey<Structure> tag) {
+    return server.registryAccess().registryOrThrow(Registries.STRUCTURE).getTag(tag).filter(structures -> structures.size() != 0).isPresent();
   }
 
   @Override

@@ -57,6 +57,11 @@ public interface ILootrSavedData extends IRedirect<ILootrInfo>, ILootrInfo, IOpe
 
   ILootrInventory createInventory(ILootrInfoProvider provider, ServerPlayer player, LootFiller filler);
 
+  /**
+   * Creates and fills the inventory of the player with the given id, who has to be online: loot fillers need
+   * the player. For a player who is offline nothing is created or stored and null is returned.
+   */
+  @Nullable
   ILootrInventory createInventory (ILootrInfoProvider provider, UUID playerId, LootFiller filler);
 
   @Override

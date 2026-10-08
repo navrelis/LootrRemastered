@@ -29,16 +29,29 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class BlockEntityTicker {
-  private static final Map<ResourceKey<Level>, BlockEntityTicker> TICKERS = new Object2ObjectOpenHashMap<>();
+  // Entries that are not ready on their first check are looked at again only every so many ticks.
+  private static final int WAITING_CHECK_INTERVAL = 5;
+
+  // Concurrent: `addEntity` adds tickers from other threads while the server thread iterates in `onServerTick`.
+  private static final Map<ResourceKey<Level>, BlockEntityTicker> TICKERS = new ConcurrentHashMap<>();
 
   private final ResourceKey<Level> levelKey;
   private final Map<ChunkPos, Entry> blockEntityEntries = new Object2ObjectOpenHashMap<>();
   private final Map<ChunkPos, Entry> pendingEntries = new Object2ObjectOpenHashMap<>();
+  // Chunks that were queued (again) since the last tick: these are checked on the next tick. Server thread only.
+  private final Set<ChunkPos> newEntries = new HashSet<>();
+  private int ticksUntilWaitingCheck = WAITING_CHECK_INTERVAL;
 
   private BlockEntityTicker(ResourceKey<Level> levelKey) {
     this.levelKey = levelKey;
+  }
+
+  // For when the server stops: nothing that is queued belongs to the next world.
+  public static void clear() {
+    TICKERS.clear();
   }
 
   public static void addEntity(BlockEntity entity, Level level, ChunkPos chunkPos) {
@@ -50,10 +63,7 @@ public final class BlockEntityTicker {
       return;
     }
 
-    BlockEntityTicker ticker;
-    synchronized (TICKERS) {
-      ticker = TICKERS.computeIfAbsent(dimension, BlockEntityTicker::new);
-    }
+    BlockEntityTicker ticker = TICKERS.computeIfAbsent(dimension, BlockEntityTicker::new);
 
     ticker.addEntity(level, entity, chunkPos);
   }
@@ -174,9 +184,18 @@ public final class BlockEntityTicker {
 
   private void onServerLevelTick(ServerLevel level) {
     Set<ChunkPos> loadedChunks = LoadedChunks.getLoadedChunks(level.dimension());
+    // Checking an entry costs up to 25 chunk lookups, and entries of chunks at the edge of the loaded area
+    // can wait for a long time: only new entries are checked on every tick, all of them every few ticks.
+    boolean checkWaiting = --ticksUntilWaitingCheck <= 0;
+    if (checkWaiting) {
+      ticksUntilWaitingCheck = WAITING_CHECK_INTERVAL;
+    }
     Iterator<Entry> iterator = blockEntityEntries.values().iterator();
     while (iterator.hasNext()) {
       Entry entry = iterator.next();
+      if (!checkWaiting && !newEntries.contains(entry.chunkPos)) {
+        continue;
+      }
       switch (entry.getChunkLoadStatus(level, loadedChunks)) {
         case UNLOADED -> {
           // the chunk has unloaded. this entry is no longer valid, and it will be added again if the chunk loads again.
@@ -195,12 +214,15 @@ public final class BlockEntityTicker {
       }
     }
 
+    newEntries.clear();
+
     synchronized (pendingEntries) {
       for (Entry entry : pendingEntries.values()) {
         blockEntityEntries.merge(entry.chunkPos, entry, (entry1, entry2) -> {
           entry1.entityPositions.addAll(entry2.entityPositions);
           return entry1;
         });
+        newEntries.add(entry.chunkPos);
       }
 
       pendingEntries.clear();

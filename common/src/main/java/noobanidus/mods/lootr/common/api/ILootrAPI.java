@@ -90,6 +90,20 @@ public interface ILootrAPI {
   @Nullable
   ILootrSavedData getData(ILootrInfoProvider provider);
 
+  // Get saved data by its key (`ILootrInfo::getInfoKey`) only if it is already in memory: never reads a file, never creates data
+  // The default returns null so that existing implementations of the interface keep working
+  @Nullable
+  default ILootrSavedData getLoadedData(String key) {
+    return null;
+  }
+
+  // Get saved data by its key if it is in memory or on disk: unlike `getData`, never creates data
+  // The default returns null so that existing implementations of the interface keep working
+  @Nullable
+  default ILootrSavedData getExistingData(String key) {
+    return null;
+  }
+
   // Calculate seed according to configuration
   long getLootSeed(long seed);
 

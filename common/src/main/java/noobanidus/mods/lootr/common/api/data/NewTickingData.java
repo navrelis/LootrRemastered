@@ -7,6 +7,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 import noobanidus.mods.lootr.common.api.LootrAPI;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.util.UUID;
@@ -15,9 +16,6 @@ import java.util.function.Function;
 @SuppressWarnings("DataFlowIssue")
 public class NewTickingData {
   private static final Function<String, SavedData.Factory<Section>> STRING_FACTORY = (name) -> new SavedData.Factory<>(() -> new Section(name), Section::load, null);
-
-  private static final Object2ObjectMap<UUID, String> CACHED_NAMES = new Object2ObjectOpenHashMap<>();
-  private static final Object2ObjectMap<UUID, String> CACHED_FILE_NAMES = new Object2ObjectOpenHashMap<>();
 
   private static final NewTickingData REFRESH_DATA = new NewTickingData(TickingType.REFRESH);
   private static final NewTickingData DECAY_DATA = new NewTickingData(TickingType.DECAY);
@@ -34,7 +32,11 @@ public class NewTickingData {
   private final TickingType type;
 
   @SuppressWarnings("deprecation")
-  public void migrateOldData (MinecraftServer server, TickingData oldData) {
+  public void migrateOldData (MinecraftServer server, @Nullable TickingData oldData) {
+    // Nothing to migrate: emptying it again would only mark the legacy data as changed on every call.
+    if (oldData == null || oldData.getTickMap().isEmpty()) {
+      return;
+    }
     var currentGameTime = server.getWorldData().overworldData().getGameTime();
     for (Object2IntMap.Entry<UUID> entry : oldData.getTickMap().object2IntEntrySet()) {
       UUID id = entry.getKey();
@@ -91,15 +93,9 @@ public class NewTickingData {
     }
   }
 
-  private static String getCached(UUID id) {
-    return CACHED_NAMES.computeIfAbsent(id, UUID::toString);
-  }
-
+  // Not cached: a map from every container id ever asked about to this name would only grow.
   private static String getBaseFileName(UUID id) {
-    return CACHED_FILE_NAMES.computeIfAbsent(id, (UUID uuid) -> {
-      var name = getCached(uuid);
-      return name.substring(0, 2);
-    });
+    return id.toString().substring(0, 2);
   }
 
   private String getFileName (UUID id) {

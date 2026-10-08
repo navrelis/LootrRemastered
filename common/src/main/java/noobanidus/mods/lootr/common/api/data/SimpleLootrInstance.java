@@ -27,6 +27,8 @@ public class SimpleLootrInstance {
   protected NonNullList<ItemStack> customInventory = null;
   protected final Set<UUID> clientOpeners = new ObjectOpenHashSet<>();
   protected UUID infoId = null;
+  // Whether `infoId` was read from saved NBT. While it was generated here, nothing can be saved under it yet.
+  protected boolean infoIdLoaded = false;
   protected boolean hasBeenOpened = false;
   protected String cachedId;
   protected boolean clientOpened = false;
@@ -146,6 +148,7 @@ public class SimpleLootrInstance {
     if (!providesOwnUuid) {
       if (compound.hasUUID(NBTConstants.INSTANCE_ID)) {
         this.infoId = compound.getUUID(NBTConstants.INSTANCE_ID);
+        this.infoIdLoaded = true;
       }
     }
     if (compound.contains(NBTConstants.HAS_BEEN_OPENED, Tag.TAG_BYTE)) {
@@ -205,7 +208,7 @@ public class SimpleLootrInstance {
   public void fillUpdateTag(CompoundTag result, HolderLookup.Provider provider, boolean isClientSide) {
     saveAdditional(result, provider, isClientSide);
     if (!isClientSide) {
-      Set<UUID> currentOpeners = visualOpenersSupplier.get();
+      Set<UUID> currentOpeners = getVisualOpenersForUpdateTag();
       if (currentOpeners != null) {
         // TODO: Convert this to getPlayerAndTeamIds
         ListTag list = new ListTag();
@@ -220,6 +223,21 @@ public class SimpleLootrInstance {
     } else {
       LootrAPI.LOG.error("Tried to fillUpdateTag on the client side for SimpleLootrInstance: {}", this);
     }
+  }
+
+  // The supplier creates (and keeps in memory) an empty data object for a container that has none, after
+  // looking for its file. Update tags are built for every container of every chunk that is sent to a player,
+  // most of which were never opened, so for those only data that already exists is consulted. `hasBeenOpened`
+  // alone does not prove that nothing is saved (it is younger than the data format), hence the file is still
+  // looked for, except for an id that was generated here: nothing can be saved under it but what is in memory.
+  @Nullable
+  private Set<UUID> getVisualOpenersForUpdateTag() {
+    if (hasBeenOpened) {
+      return visualOpenersSupplier.get();
+    }
+    String key = getInfoKey();
+    ILootrSavedData data = infoIdLoaded || providesOwnUuid ? LootrAPI.getExistingData(key) : LootrAPI.getLoadedData(key);
+    return data == null ? null : data.getVisualOpeners();
   }
 
   public int getRandomOffset() {

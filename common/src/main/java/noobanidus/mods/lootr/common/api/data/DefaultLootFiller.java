@@ -20,7 +20,9 @@ import org.jetbrains.annotations.Nullable;
 
 public class DefaultLootFiller implements LootFiller {
   private static final DefaultLootFiller INSTANCE = new DefaultLootFiller();
-  private static LootFillerState state = null;
+  // Per thread: loot tables are also rolled on other threads (world generation), which must not see the
+  // state of a fill that is running on the server thread.
+  private static final ThreadLocal<LootFillerState> STATE = new ThreadLocal<>();
 
   public static DefaultLootFiller getInstance() {
     return INSTANCE;
@@ -28,7 +30,7 @@ public class DefaultLootFiller implements LootFiller {
 
   @Nullable
   public static LootFillerState getFillerState() {
-    return state;
+    return STATE.get();
   }
 
   @Override
@@ -80,8 +82,11 @@ public class DefaultLootFiller implements LootFiller {
   // This is used to allow for storing the state during the loot filling process, allowing for our loot table mixin to apply
   public static void performFill(ILootrInfoProvider provider, Player player, ResourceKey<LootTable> lootTableKey, LootTable lootTable, Container container, LootParams parameters, long seed) {
     setFillerState(new LootFillerState(provider, player, lootTableKey, lootTable, container, parameters, seed));
-    lootTable.fill(container, parameters, seed);
-    setFillerState(null);
+    try {
+      lootTable.fill(container, parameters, seed);
+    } finally {
+      setFillerState(null);
+    }
     // Lootr's own fills never keep banned stacks, also when not every loot roll is filtered (`filter_all_loot`)
     // or when something added stacks after the roll. Removal is permanent by design.
     if (ItemBans.isActive()) {
@@ -90,6 +95,10 @@ public class DefaultLootFiller implements LootFiller {
   }
 
   public static void setFillerState(@Nullable LootFillerState newState) {
-    state = newState;
+    if (newState == null) {
+      STATE.remove();
+    } else {
+      STATE.set(newState);
+    }
   }
 }

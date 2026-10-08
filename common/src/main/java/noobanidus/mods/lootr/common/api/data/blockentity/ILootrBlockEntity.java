@@ -141,9 +141,11 @@ public interface ILootrBlockEntity extends ILootrInfoProvider {
   default boolean canPlayerOpen(ServerPlayer player) {
     if (this instanceof BaseContainerBlockEntity bce) {
       LockMessageSuppression.setSuppressableLock(true);
-      var result = bce.canOpen(player);
-      LockMessageSuppression.setSuppressableLock(false);
-      return result;
+      try {
+        return bce.canOpen(player);
+      } finally {
+        LockMessageSuppression.setSuppressableLock(false);
+      }
     }
 
     return true;

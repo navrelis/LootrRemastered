@@ -7,9 +7,11 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
 import noobanidus.mods.lootr.common.api.LootrAPI;
@@ -19,7 +21,9 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -191,9 +195,16 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
   }
 
   @Override
+  @Nullable
   public LootrInventory createInventory(ILootrInfoProvider provider, UUID playerId, LootFiller filler) {
+    ServerPlayer player = LootrAPI.getPlayer(playerId);
+    if (player == null) {
+      // Loot fillers need the player (luck, advancements). Nothing is created or stored for an offline player.
+      LootrAPI.LOG.debug("Not creating an inventory in Lootr container {} for {}: the player is not online.", getInfoUUID(), playerId);
+      return null;
+    }
     LootrInventory result = new LootrInventory(this, provider.buildInitialInventory());
-    filler.unpackLootTable(provider, LootrAPI.getPlayer(playerId), result);
+    filler.unpackLootTable(provider, player, result);
     if (ItemBans.isActive()) {
       removeBannedItems(result, playerId);
     }
@@ -235,16 +246,65 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
   public void update(ILootrInfo info) {
     BaseLootrInfo infoCopy = BaseLootrInfo.copy(info);
     if (!infoCopy.equals(this.info)) {
-      markChanged();
-      this.info = info;
+      if (isSavedInfoDifferent(this.info, infoCopy)) {
+        markChanged();
+      }
+      // Always the copy: the live provider (a block entity or an entity) must not be kept alive by the cache.
+      this.info = infoCopy;
     }
+  }
+
+  // Compares what `ILootrInfo.loadInfoFromTag` reads back. The deprecated type fields and the key are not
+  // among it: loaded info has no deprecated types and derives its key, so comparing them would make every
+  // loaded container look changed.
+  private static boolean isSavedInfoDifferent(ILootrInfo saved, ILootrInfo current) {
+    if (!Objects.equals(saved.getInfoNewType(), current.getInfoNewType()) || !saved.getInfoUUID().equals(current.getInfoUUID())) {
+      return true;
+    }
+    if (!saved.getInfoPos().equals(current.getInfoPos()) || !saved.getInfoDimension().equals(current.getInfoDimension()) || saved.getInfoContainerSize() != current.getInfoContainerSize()) {
+      return true;
+    }
+    if (!Objects.equals(saved.getInfoLootTable(), current.getInfoLootTable()) || (current.getInfoLootTable() != null && saved.getInfoLootSeed() != current.getInfoLootSeed())) {
+      return true;
+    }
+    if (!Objects.equals(saved.getInfoDisplayName(), current.getInfoDisplayName())) {
+      return true;
+    }
+    NonNullList<ItemStack> savedReference = saved.isInfoReferenceInventory() ? saved.getInfoReferenceInventory() : null;
+    NonNullList<ItemStack> currentReference = current.isInfoReferenceInventory() ? current.getInfoReferenceInventory() : null;
+    if (savedReference == null || currentReference == null) {
+      return savedReference != currentReference;
+    }
+    return savedReference != currentReference && !ItemStack.listMatches(savedReference, currentReference);
   }
 
   @Override
   public void refresh() {
+    closeOpenMenus();
     inventories.clear();
     hasBeenOpened = false;
     markChanged();
+  }
+
+  // A menu that stays open across a refresh keeps showing an inventory that is no longer stored: what is put
+  // into it is lost and what is taken out of it comes on top of the new loot. Closing it makes the next
+  // opening create the new inventory.
+  private void closeOpenMenus() {
+    MinecraftServer server = LootrAPI.getServer();
+    if (server == null || inventories.isEmpty()) {
+      return;
+    }
+    for (ServerPlayer player : List.copyOf(server.getPlayerList().getPlayers())) {
+      if (!player.hasContainerOpen()) {
+        continue;
+      }
+      for (Slot slot : player.containerMenu.slots) {
+        if (slot.container instanceof LootrInventory inventory && inventory.getInfo() == this) {
+          player.closeContainer();
+          break;
+        }
+      }
+    }
   }
 
   // This is triggered in createInventory and reset in refresh.

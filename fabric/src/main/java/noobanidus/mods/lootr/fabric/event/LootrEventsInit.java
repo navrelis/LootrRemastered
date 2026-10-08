@@ -44,12 +44,14 @@ public class LootrEventsInit {
     ServerLifecycleEvents.SERVER_STARTING.register(server -> {
       serverInstance = server;
       LoadedChunks.clear();
+      BlockEntityTicker.clear();
       IntegratedLoot.onServerStarting(server);
     });
 
     ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
       serverInstance = null;
       LoadedChunks.clear();
+      BlockEntityTicker.clear();
       IntegratedLoot.onServerStopped();
     });
 

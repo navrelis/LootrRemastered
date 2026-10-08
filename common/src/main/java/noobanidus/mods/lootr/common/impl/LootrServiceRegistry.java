@@ -39,7 +39,7 @@ import java.util.function.Function;
 
 @SuppressWarnings("unchecked")
 public class LootrServiceRegistry {
-  private static LootrServiceRegistry INSTANCE;
+  private static volatile LootrServiceRegistry INSTANCE;
 
   private final Map<BlockEntityType<?>, Function<?, ?>> blockEntityConverterMap = new Object2ObjectOpenHashMap<>();
   private final Map<EntityType<?>, Function<?, ?>> entityConverterMap = new Object2ObjectOpenHashMap<>();
@@ -178,11 +178,20 @@ public class LootrServiceRegistry {
         .sorted(Comparator.comparingInt(IProblematicLootTableProcessor::priority).reversed()).toList());
   }
 
+  // Reached from several threads (block entities are also inspected during world generation): the registry
+  // must be built exactly once, because building it hands the types to `BuiltInLootrTypes`.
   public static LootrServiceRegistry getInstance() {
-    if (INSTANCE == null) {
-      INSTANCE = new LootrServiceRegistry();
+    LootrServiceRegistry instance = INSTANCE;
+    if (instance == null) {
+      synchronized (LootrServiceRegistry.class) {
+        instance = INSTANCE;
+        if (instance == null) {
+          instance = new LootrServiceRegistry();
+          INSTANCE = instance;
+        }
+      }
     }
-    return INSTANCE;
+    return instance;
   }
 
   @Nullable

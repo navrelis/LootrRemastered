@@ -28,6 +28,7 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -96,7 +97,8 @@ public class DataStorage {
       return -1;
     }
     var server = LootrAPI.getServer();
-    TickingData oldData = manager.computeIfAbsent(TickingData.FACTORY, DECAYS);
+    // `get`, not `computeIfAbsent`: the legacy file is only read, never created.
+    TickingData oldData = manager.get(TickingData.FACTORY, DECAYS);
     NewTickingData data = NewTickingData.getDecayData();
     data.migrateOldData(server, oldData);
     // Safe to down-cast as the value should always be quite small
@@ -120,7 +122,7 @@ public class DataStorage {
       LootrAPI.LOG.error("DataStorage is null at this stage; Lootr cannot set the decay value for {}.", provider.getInfoUUID());
       return;
     }
-    TickingData oldData = manager.computeIfAbsent(TickingData.FACTORY, DECAYS);
+    TickingData oldData = manager.get(TickingData.FACTORY, DECAYS);
     NewTickingData data = NewTickingData.getDecayData();
     var server = LootrAPI.getServer();
     data.migrateOldData(server, oldData);
@@ -149,7 +151,7 @@ public class DataStorage {
       LootrAPI.LOG.error("DataStorage is null at this stage; Lootr cannot determine the refresh value for {}.", provider.getInfoUUID());
       return -1;
     }
-    TickingData oldData = manager.computeIfAbsent(TickingData.FACTORY, REFRESHES);
+    TickingData oldData = manager.get(TickingData.FACTORY, REFRESHES);
     NewTickingData data = NewTickingData.getRefreshData();
     var server = LootrAPI.getServer();
     data.migrateOldData(server, oldData);
@@ -173,7 +175,7 @@ public class DataStorage {
       LootrAPI.LOG.error("DataStorage is null at this stage; Lootr cannot set the refresh value for {}.", provider.getInfoUUID());
       return;
     }
-    TickingData data = manager.computeIfAbsent(TickingData.FACTORY, REFRESHES);
+    TickingData data = manager.get(TickingData.FACTORY, REFRESHES);
     NewTickingData newData = NewTickingData.getRefreshData();
     var server = LootrAPI.getServer();
     newData.migrateOldData(server, data);
@@ -199,6 +201,29 @@ public class DataStorage {
     LootrSavedData result = manager.computeIfAbsent(new SavedData.Factory<>(LootrSavedData.fromInfo(provider), LootrSavedData::load, null), provider.getInfoKey());
     result.update(provider);
     return result;
+  }
+
+  // Only what is already in memory: this never reads a file and never creates data.
+  @ApiStatus.Internal
+  @Nullable
+  public static LootrSavedData getLoadedData(String key) {
+    DimensionDataStorage manager = DataStorage.getDataStorage();
+    if (manager == null) {
+      return null;
+    }
+    return ((AccessorMixinDimensionDataStorage) manager).getCache().get(key) instanceof LootrSavedData data ? data : null;
+  }
+
+  // What is in memory or on disk. Unlike `getData` this creates nothing for a container without a data file;
+  // the storage remembers that there is none, so the file is looked for only once.
+  @ApiStatus.Internal
+  @Nullable
+  public static LootrSavedData getExistingData(String key) {
+    DimensionDataStorage manager = DataStorage.getDataStorage();
+    if (manager == null) {
+      return null;
+    }
+    return manager.get(new SavedData.Factory<>(() -> LootrDummyData.INSTANCE, LootrSavedData::load, null), key) instanceof LootrSavedData data ? data : null;
   }
 
   @Nullable
@@ -234,30 +259,45 @@ public class DataStorage {
 
 
     Set<String> files = new HashSet<>();
-    for (String cache : ((AccessorMixinDimensionDataStorage) data).getCache().keySet()) {
-      if (cache.startsWith("lootr/")) {
-        if (cache.startsWith("lootr/Lootr-") || cache.startsWith("lootr/lootr-")) {
-          continue;
-        }
-        files.add(cache);
+    // Only container data: the ticking sections (`lootr/ticking/...`) are cached under `lootr/` as well.
+    for (Map.Entry<String, SavedData> cache : ((AccessorMixinDimensionDataStorage) data).getCache().entrySet()) {
+      if (cache.getValue() instanceof LootrSavedData) {
+        files.add(cache.getKey());
       }
+    }
+
+    if (!Files.isDirectory(dataPath)) {
+      return files;
     }
 
     try (Stream<Path> paths = Files.walk(dataPath)) {
       paths.forEach(path -> {
-        if (Files.isRegularFile(path)) {
-          String fileName = path.getFileName().toString();
-          if (fileName.startsWith("lootr-") || fileName.startsWith("Lootr-")) {
-            return;
-          }
-          files.add("lootr/" + fileName.charAt(0) + "/" + fileName.substring(0, 2) + "/" + fileName.replace(".dat", ""));
+        String key = getContainerKey(dataPath, path);
+        if (key != null) {
+          files.add(key);
         }
       });
-    } catch (IOException e) {
-      return files;
+    } catch (IOException | UncheckedIOException e) {
+      LootrAPI.LOG.error("Unable to list all Lootr data files in {}; continuing with the {} found so far.", dataPath, files.size(), e);
     }
 
     return files;
+  }
+
+  // Container data is stored as `<c>/<cc>/<name>.dat`, `c` and `cc` being the first one and two characters of
+  // the name (see `ILootrInfo.generateInfoKey`). Other files below the folder are not container data.
+  @Nullable
+  private static String getContainerKey(Path dataPath, Path file) {
+    Path relative = dataPath.relativize(file);
+    String fileName = file.getFileName().toString();
+    if (relative.getNameCount() != 3 || !fileName.endsWith(".dat") || fileName.length() < 6 || !Files.isRegularFile(file)) {
+      return null;
+    }
+    String name = fileName.substring(0, fileName.length() - 4);
+    if (!relative.getName(0).toString().equals(name.substring(0, 1)) || !relative.getName(1).toString().equals(name.substring(0, 2))) {
+      return null;
+    }
+    return "lootr/" + name.charAt(0) + "/" + name.substring(0, 2) + "/" + name;
   }
 
   @ApiStatus.Internal
@@ -281,7 +321,8 @@ public class DataStorage {
 
     for (String file : files) {
       SavedData datum = data.get(new SavedData.Factory<>(() -> LootrDummyData.INSTANCE, LootrSavedData::load, null), file);
-      if (datum == LootrDummyData.INSTANCE) {
+      // `get` yields null, never the dummy, for a file that could not be read.
+      if (datum == null || datum == LootrDummyData.INSTANCE) {
         // Failed to load so clear it from the cache
         LootrAPI.LOG.error("Failed to load data for {}, removing from cache.", file);
         ((AccessorMixinDimensionDataStorage) data).getCache().remove(file);
@@ -358,7 +399,8 @@ public class DataStorage {
 
     for (String file : files) {
       SavedData datum = data.get(new SavedData.Factory<>(() -> LootrDummyData.INSTANCE, LootrSavedData::load, null), file);
-      if (datum == LootrDummyData.INSTANCE) {
+      // `get` yields null, never the dummy, for a file that could not be read.
+      if (datum == null || datum == LootrDummyData.INSTANCE) {
         // Failed to load so clear it from the cache
         LootrAPI.LOG.error("Failed to load data for {}, removing from cache.", file);
         ((AccessorMixinDimensionDataStorage) data).getCache().remove(file);

@@ -1,0 +1,1 @@
+Per-player loot containers (Lootr) with built-in extra loot for vanilla and modded structure chests, item bans through Item Obliterator and a loot table check command. One Fabric 1.21.1 jar that replaces Lootr and Loot Integrations.

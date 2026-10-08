@@ -38,3 +38,5 @@
 - T07 runs in its own git worktree in parallel with T04, with a no-touch file list: both need Gradle and both are long; the patch is merged after T04 is committed.
 - T05 is drafted outside the repository first: the engine task must see a jar without built-in rules, and the validator can check patterns against the pack inventory without the game.
 - Rule files get a second optional gate `required_namespaces` (active only if a loaded loot table has that namespace): NeoForge mods loaded through Sporran have no Fabric mod id, and the gate also suits plain data packs.
+- Block state and model JSON files inherited from upstream's assets folder are rewritten from a functional specification by an implementer who never saw them: they carry no art, but the original notice ("All Lootr Assets are ARR") does not say what it covers, and a public release should not depend on our reading of it. Item models that used a copied display block now inherit from vanilla's chest item model.
+- `fabric.mod.json` declares `breaks` for `lootintegrations`: running both would extend loot twice; the add-ons depend on that id, so one entry covers them.

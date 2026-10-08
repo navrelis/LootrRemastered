@@ -1,1 +1,97 @@
-All Lootr Assets are ARR (All Rights Reserved).
+Lootr Remastered: licence of artwork and other resources
+==========================================================
+
+This file replaces the notice of the original Lootr, which consisted of one sentence:
+
+    All Lootr Assets are ARR (All Rights Reserved).
+
+That sentence does not say which files it covers. It is quoted here because Lootr Remastered
+started from the Lootr source tree (version 1.11.38.128, commit b62e382a of the project
+LootrMinecraft/Lootr). The sections below say what this repository contains today. The
+detailed evidence is in docs/licence-audit.md.
+
+1. Artwork drawn for Lootr Remastered: MIT
+------------------------------------------
+
+All images in this repository and in the mod jar were drawn for Lootr Remastered by navrelis
+and are released under the MIT licence of the file LICENSE (Copyright (c) 2026 navrelis):
+
+  - the 25 textures under common/src/main/resources/assets/lootr/textures/ (chests, shulker
+    boxes, barrels, planks, suspicious sand and gravel, decorated pot, trophy, toasts);
+  - the mod icon fabric/src/main/resources/icon.png and the pack icons
+    datapacks/*/pack.png;
+  - the logo art/logo/logo_native.png (32 x 32) and art/logo/logo_512.png;
+  - the contact sheets and previews in art/preview/;
+  - the trophy model common/src/main/resources/assets/lootr/models/block/trophy.json.
+
+Every one of them is written by the script art/generate.py, which draws from its own palettes
+and pixel grids and does not read any file of the original Lootr. Each of the 24 textures
+that exist in Lootr 1.11.38.128 under the same path was compared with that file: no pixel
+that is drawn in either file is identical (checked with art/verify.py and a second,
+independent comparison). The remaining image, textures/block/trophy.png, and the logo have no
+counterpart in Lootr. No artwork of the original Lootr and no texture of Minecraft is
+included.
+
+2. Language files
+-----------------
+
+assets/lootr/lang/en_us.json: 170 of its 192 entries are word for word the English text of
+Lootr 1.11.38.128. That text was not written in a hand-maintained resource file; it was
+produced by Lootr's data generator class (LootrLangProvider), which is part of Lootr's
+MIT-licensed code. The file is therefore treated as MIT. Entries added or changed for
+Lootr Remastered are MIT, Copyright (c) 2026 navrelis.
+
+assets/lootr/lang/de_de.json was written new for Lootr Remastered (MIT). The 30 community
+translations of Lootr were removed, because they sat in the folder that the original notice
+reserves. No other language is included.
+
+3. Data files
+-------------
+
+The files under data/ (tags, loot tables, advancements) and the optional data packs in
+datapacks/ are, apart from the integrated loot data and the two pack.png icons (section 1),
+byte-identical to files that Lootr's MIT-licensed data generator wrote. Their content comes
+from MIT-licensed code. The integrated loot data (data/lootr/lootr/integrated_loot/ and one
+item tag) was written for Lootr Remastered (MIT). The original Lootr kept none of these files
+in its hand-written assets folder.
+
+4. Block state and model files that started from the assets folder of Lootr
+---------------------------------------------------------------------------
+
+Lootr Remastered started with 32 JSON files under common/src/main/resources/assets/lootr/ that
+were byte-identical to the files of the same path in Lootr 1.11.38.128: 9 block states
+(blockstates/), 13 block models (models/block/, not counting the trophy model of section 1)
+and 10 item models (models/item/). They contained no image data and no model geometry. They
+were deleted and written again by someone who did not open the old files, from a written
+specification of what each file has to say (which variants, which parent models, which
+texture ids). Their formatting, key order and written-out namespaces are new. The five item
+models that carried a copied block of display transform numbers now inherit from vanilla's
+chest item model instead.
+
+26 of the 32 files now differ from Lootr's files in their bytes (21 of them say the same
+thing in different words and layout, because the game's format and our block and texture
+names leave one correct statement; 5 differ in substance).
+
+6 files are still byte-identical to Lootr's. Each states one fact in one line, and the game's
+format has no other way to say it:
+
+  - blockstates/decorated_pot.json, lootr_chest.json, lootr_inventory.json, lootr_shulker.json
+    and lootr_trapped_chest.json: one variant that points at one model;
+  - models/item/trophy.json: one parent line that names our trophy model.
+
+This text does not rely on any reading of the original notice for the 26 rewritten files. For
+the 6 identical files it relies on the position that a one-line statement of this kind is not
+protected, which the original author has not confirmed. They are the only files in this
+repository that are identical to a file in Lootr's hand-written assets folder.
+
+5. Everything else
+------------------
+
+All source code, build files and documentation: MIT, see LICENSE. The code of Lootr itself
+is MIT, Copyright (c) 2018 as stated there. Lootr Remastered contains no code and no data
+files of Loot Integrations or of Item Obliterator.
+
+The build puts this file and LICENSE at the root of the jar.
+
+The history of this repository contains the original Lootr files, including its artwork and
+translations, under the original notice. They are not part of this licence.

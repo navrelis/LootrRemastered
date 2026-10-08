@@ -37,3 +37,4 @@
 - English language file kept (its strings come from the MIT-licensed generator code), a new German file is written, the other 30 community translations are removed until the Lootr author permits their use: they sit in the assets folder that upstream declares All Rights Reserved. Owner may change this.
 - T07 runs in its own git worktree in parallel with T04, with a no-touch file list: both need Gradle and both are long; the patch is merged after T04 is committed.
 - T05 is drafted outside the repository first: the engine task must see a jar without built-in rules, and the validator can check patterns against the pack inventory without the game.
+- Rule files get a second optional gate `required_namespaces` (active only if a loaded loot table has that namespace): NeoForge mods loaded through Sporran have no Fabric mod id, and the gate also suits plain data packs.

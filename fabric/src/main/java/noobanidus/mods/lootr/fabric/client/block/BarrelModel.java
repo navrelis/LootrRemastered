@@ -53,7 +53,6 @@ public class BarrelModel implements UnbakedModel {
     this.opened.resolveParents(function);
     this.unopened.resolveParents(function);
     this.vanilla.resolveParents(function);
-
   }
 
   @Nullable

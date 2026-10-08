@@ -226,6 +226,14 @@ public class DataStorage {
     return manager.get(new SavedData.Factory<>(() -> LootrDummyData.INSTANCE, LootrSavedData::load, null), key) instanceof LootrSavedData data ? data : null;
   }
 
+  // `provider.hasVisualOpened(player)` for the code that tells clients how to show container entities: that
+  // runs for every entity a player starts to see, most of which were never opened. Asking the provider
+  // creates (and keeps in memory) an empty data object for those; without data there is no opener.
+  @ApiStatus.Internal
+  public static boolean hasVisualOpened(ILootrInfoProvider provider, Player player) {
+    return getExistingData(provider.getInfoKey()) != null && provider.hasVisualOpened(player);
+  }
+
   @Nullable
   public static ILootrInventory getInventory(ILootrInfoProvider provider, ServerPlayer player, LootFiller filler) {
     LootrSavedData data = getData(provider);

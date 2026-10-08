@@ -177,6 +177,11 @@ public interface ILootrInfoProvider extends ILootrInfo, IClientOpeners {
 
   @Override
   default void markDataChanged() {
+    // Only data that exists can have changed. Asking `getData` would create it for a container that nobody
+    // opened, and marking that would write a file without content for it at the next world save.
+    if (LootrAPI.getExistingData(getInfoKey()) == null) {
+      return;
+    }
     ILootrSavedData data = LootrAPI.getData(this);
     if (data != null) {
       data.markChanged();

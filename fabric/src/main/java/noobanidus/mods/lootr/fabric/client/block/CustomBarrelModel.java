@@ -92,7 +92,7 @@ public class CustomBarrelModel implements UnbakedModel {
       BakedModel model = unopened;
       if (LootrAPI.isVanillaTextures() && vanilla != null) {
         model = vanilla;
-      } if (data == Boolean.TRUE) {
+      } else if (data == Boolean.TRUE) {
         model = opened;
       }
 

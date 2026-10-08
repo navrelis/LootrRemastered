@@ -15,6 +15,7 @@ import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.api.LootrTags;
 import noobanidus.mods.lootr.common.api.PlatformAPI;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrEntity;
+import noobanidus.mods.lootr.common.data.DataStorage;
 
 import java.util.List;
 
@@ -61,7 +62,7 @@ public abstract class DefaultPlatformAPIImpl implements IPlatformAPI {
 
     for (Entity e : player.level().getEntities((Entity)null, box, (e) -> e.getType().is(LootrTags.Entity.CONTAINERS))) {
       if ((LootrAPI.resolveEntity(e) instanceof ILootrEntity entity)) {
-        if (entity.hasVisualOpened(player)) {
+        if (DataStorage.hasVisualOpened(entity, player)) {
           open.add(e.getId());
         } else {
           closed.add(e.getId());

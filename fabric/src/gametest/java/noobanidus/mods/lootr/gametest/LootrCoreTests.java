@@ -1,5 +1,6 @@
 package noobanidus.mods.lootr.gametest;
 
+import com.mojang.datafixers.util.Pair;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -16,14 +17,20 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
 import net.minecraft.tags.StructureTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.Container;
+import net.minecraft.world.LockCode;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
@@ -63,10 +70,13 @@ import noobanidus.mods.lootr.common.block.entity.LootrChestBlockEntity;
 import noobanidus.mods.lootr.common.chunk.LoadedChunks;
 import noobanidus.mods.lootr.common.data.DataStorage;
 import noobanidus.mods.lootr.common.data.LootrSavedData;
+import noobanidus.mods.lootr.common.entity.LootrChestMinecartEntity;
 import noobanidus.mods.lootr.common.impl.DefaultLootrAPIImpl;
+import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinBaseContainerBlockEntity;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinDimensionDataStorage;
 import noobanidus.mods.lootr.fabric.config.ConfigManager;
 import noobanidus.mods.lootr.fabric.impl.LootrAPIImpl;
+import noobanidus.mods.lootr.fabric.impl.PlatformAPIImpl;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -79,20 +89,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
  * Tests for the core of the mod: saved data, ticking data, the conversion queue and the static flags.
  * <br />
  * Whatever is global (configuration, the data storage cache, `LootrAPI.INSTANCE`) is changed only inside one
- * synchronous block on the server thread and restored in a `finally`. Lines logged with `[T07]` are the
- * measurements the tests are built on.
+ * synchronous block on the server thread and restored in a `finally`. Lines logged with `[T07]` and `[T08b]`
+ * are the measurements the tests are built on.
  */
 public class LootrCoreTests implements FabricGameTest {
   private static final String BATCH = "lootr_core";
   private static final int CONVERSION_TIMEOUT_TICKS = 400;
+  private static final int CHUNK_WAIT_SECONDS = 60;
   private static final ResourceKey<LootTable> TABLE = BuiltInLootTables.SIMPLE_DUNGEON;
   private static final Consumer<CompoundTag> UNCHANGED = tag -> {
   };
@@ -395,9 +409,9 @@ public class LootrCoreTests implements FabricGameTest {
     BlockPos chestPos = waiting.getBlockAt(8, 100, 8);
     AtomicReference<Long> readyAt = new AtomicReference<>();
     level.setChunkForced(forced.x, forced.z, true);
+    awaitChunks(helper, () -> LoadedChunks.getLoadedChunks(level.dimension()).contains(waiting), "The border chunk was not loaded");
 
     helper.startSequence()
-        .thenWaitUntil(() -> helper.assertTrue(LoadedChunks.getLoadedChunks(level.dimension()).contains(waiting), "Waiting for the border chunk"))
         .thenExecute(() -> {
           level.setBlockAndUpdate(chestPos, Blocks.CHEST.defaultBlockState());
           ((ChestBlockEntity) level.getBlockEntity(chestPos)).setLootTable(TABLE, 6L);
@@ -430,15 +444,13 @@ public class LootrCoreTests implements FabricGameTest {
           helper.assertTrue(isQueued(level, waiting), "The waiting entry was dropped although its chunk is loaded");
           helper.assertTrue(checks.get() <= 25, "A waiting entry is re-checked on every tick (" + checks.get() + " times in 100 ticks)");
 
-          // Complete the surroundings: the container must be converted soon after.
+          // Complete the surroundings: the container must be converted soon after. Loading takes its own time
+          // and no tick passes while it is waited for; the conversion after it is counted in ticks.
           level.setChunkForced(waiting.x, waiting.z, true);
+          awaitChunks(helper, () -> surroundingsLoaded(level, waiting), "The surroundings of the waiting chunk were not loaded");
+          readyAt.set(level.getGameTime());
         })
-        .thenWaitUntil(() -> {
-          if (readyAt.get() == null && surroundingsLoaded(level, waiting)) {
-            readyAt.set(level.getGameTime());
-          }
-          helper.assertTrue(level.getBlockState(chestPos).is(LootrRegistry.getChestBlock()), "Waiting for the conversion");
-        })
+        .thenWaitUntil(() -> helper.assertTrue(level.getBlockState(chestPos).is(LootrRegistry.getChestBlock()), "Waiting for the conversion"))
         .thenExecute(() -> {
           long delay = level.getGameTime() - readyAt.get();
           LootrAPI.LOG.info("[T07] item 5: a waiting container was converted {} ticks after its surroundings were loaded", delay);
@@ -792,6 +804,325 @@ public class LootrCoreTests implements FabricGameTest {
     helper.succeed();
   }
 
+  // ----- 13. Clearing a player's inventories while one of them is open -----
+
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH, timeoutTicks = CONVERSION_TIMEOUT_TICKS)
+  public void clearingInventoriesClosesOpenMenu(GameTestHelper helper) {
+    BlockPos pos = new BlockPos(1, 1, 1);
+    LootrTestSupport.placeLootContainer(helper, pos, Blocks.CHEST, TABLE, 20L);
+    helper.startSequence()
+        .thenWaitUntil(() -> LootrTestSupport.assertBlockIs(helper, pos, LootrRegistry.getChestBlock()))
+        .thenExecute(() -> {
+          ILootrBlockEntity chest = LootrTestSupport.getLootrBlockEntity(helper, pos);
+          ServerPlayer cleared = playerAt(helper, pos);
+          ServerPlayer other = playerAt(helper, pos);
+          UUID clearedId = LootrAPI.resolveServerPlayerTeam(cleared);
+          try {
+            LootrAPI.handleProviderOpen(chest, cleared);
+            LootrAPI.handleProviderOpen(chest, other);
+            ILootrInventory shown = openInventory(helper, cleared);
+            ILootrInventory otherShown = openInventory(helper, other);
+            LootrSavedData data = cached(chest.getInfoKey());
+
+            helper.assertTrue(DataStorage.clearInventories(clearedId), "The inventory of the player was not cleared");
+            boolean stillOpen = cleared.containerMenu != cleared.inventoryMenu;
+            boolean stored = data.getInventory(clearedId) != null;
+            LootrAPI.LOG.info("[T08b] item a: inventories cleared while a menu is open: menu of the cleared player still open = {}, the inventory it showed is still stored = {}", stillOpen, stored);
+            helper.assertTrue(!stored, "The inventory is still stored");
+            helper.assertTrue(!stillOpen, "The cleared player still has a menu open that shows an inventory which is not stored any more");
+            helper.assertTrue(openInventory(helper, other) == otherShown && data.getInventory(LootrAPI.resolveServerPlayerTeam(other)) == otherShown, "Clearing one player's inventory touched the open menu of another player");
+
+            LootrAPI.handleProviderOpen(chest, cleared);
+            ILootrInventory fresh = openInventory(helper, cleared);
+            helper.assertTrue(fresh != shown && fresh == data.getInventory(clearedId), "Opening again after the clear does not show the new stored inventory");
+          } finally {
+            cleared.closeContainer();
+            other.closeContainer();
+          }
+        })
+        .thenSucceed();
+  }
+
+  // ----- 14. Closing containers from a thread that is not the server thread -----
+
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void closingContainersOffThreadIsDeferred(GameTestHelper helper) throws InterruptedException {
+    BlockPos pos = new BlockPos(1, 1, 1);
+    BlockPos removedPos = new BlockPos(4, 1, 4);
+    helper.setBlock(pos, Blocks.CHEST);
+    helper.setBlock(removedPos, Blocks.CHEST);
+    ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(pos);
+    ChestBlockEntity removed = (ChestBlockEntity) helper.getBlockEntity(removedPos);
+    ServerPlayer player = playerAt(helper, pos);
+    ServerPlayer second = playerAt(helper, removedPos);
+    player.openMenu(chest);
+    // A menu that vanilla does not close by itself once its block entity is gone: only Lootr could close it.
+    second.openMenu(new SimpleMenuProvider((id, inventory, opener) -> new ChestMenu(MenuType.GENERIC_9x3, id, inventory, removed, 3) {
+      @Override
+      public boolean stillValid(Player viewer) {
+        return true;
+      }
+    }, Component.empty()));
+    helper.assertTrue(player.containerMenu instanceof ChestMenu && second.containerMenu instanceof ChestMenu, "The mock players could not open the chests");
+
+    // As a world generation thread does when it gives a loot table to a container of a chunk that is already loaded.
+    Thread other = new Thread(() -> {
+      LootrAPI.closeContainers(removed);
+      LootrAPI.closeContainers(chest);
+    });
+    other.start();
+    other.join();
+    // The server thread was blocked meanwhile: whatever is closed by now was closed on the other thread.
+    boolean closedOffThread = player.containerMenu == player.inventoryMenu || second.containerMenu == second.inventoryMenu;
+    LootrAPI.LOG.info("[T08b] item b: closeContainers called from another thread: players and their menus were touched on that thread = {}", closedOffThread);
+    helper.assertTrue(!closedOffThread, "A menu was closed on a thread that is not the server thread");
+    removed.setRemoved();
+
+    helper.startSequence()
+        .thenWaitUntil(() -> helper.assertTrue(player.containerMenu == player.inventoryMenu, "Waiting for the open container to be closed on the server thread"))
+        .thenExecute(() -> {
+          // Both requests were queued in order, so the one for the removed block entity has been handled as well.
+          helper.assertTrue(second.containerMenu != second.inventoryMenu, "The deferred close acted on a block entity that was removed in the meantime");
+          second.closeContainer();
+        })
+        .thenSucceed();
+  }
+
+  // ----- 15. Containers that nobody opened have no data file -----
+
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH, timeoutTicks = CONVERSION_TIMEOUT_TICKS)
+  public void unopenedContainersGetNoDataFile(GameTestHelper helper) {
+    List<BlockPos> positions = grid(20);
+    placeLootChests(helper, positions, 300L);
+
+    helper.startSequence()
+        .thenWaitUntil(() -> assertConverted(helper, positions))
+        .thenExecute(() -> {
+          List<ILootrBlockEntity> chests = lootrChests(helper, positions);
+          List<String> keys = chests.stream().map(ILootrInfo::getInfoKey).toList();
+
+          storage().save();
+          long objects = countCached(keys);
+          long files = countFiles(helper, keys);
+          LootrAPI.LOG.info("[T08b] item c: 20 converted chests, one world save: saved data objects = {}, data files = {}", objects, files);
+          helper.assertTrue(objects == 0 && files == 0, "Converting created " + objects + " saved data objects and " + files + " data files");
+
+          // What a landed falling container, the initial save of other platforms and addons do.
+          chests.forEach(ILootrBlockEntity::performUpdate);
+          objects = countCached(keys);
+          long dirty = countDirty(keys);
+          storage().save();
+          files = countFiles(helper, keys);
+          LootrAPI.LOG.info("[T08b] item c: `performUpdate` on 20 unopened chests, one world save: saved data objects = {}, of them marked as changed = {}, data files = {}", objects, dirty, files);
+          helper.assertTrue(objects == 0, "`performUpdate` created saved data for " + objects + " containers that were never opened");
+          helper.assertTrue(files == 0, files + " data files were written for containers that were never opened");
+
+          // Asking who opened a container creates an empty data object; marked as changed it is still no file.
+          ServerPlayer player = playerAt(helper, positions.getFirst());
+          UUID playerId = LootrAPI.resolveServerPlayerTeam(player);
+          for (ILootrBlockEntity chest : chests) {
+            helper.assertTrue(!chest.hasVisualOpened(player), "A container that was never opened reports an opener");
+            chest.performUpdate();
+          }
+          objects = countCached(keys);
+          dirty = countDirty(keys);
+          storage().save();
+          files = countFiles(helper, keys);
+          LootrAPI.LOG.info("[T08b] item c: opener query and `performUpdate` on 20 unopened chests, one world save: saved data objects = {}, of them marked as changed = {}, data files = {}", objects, dirty, files);
+          helper.assertTrue(files == 0, files + " data files were written for containers that were never opened");
+          helper.assertTrue(countDirty(keys) == 0, "Data that was not written stays marked as changed");
+
+          // An opened container is saved, and changes to its data keep being saved when it is only on disk.
+          ILootrBlockEntity chest = chests.getFirst();
+          String key = keys.getFirst();
+          LootrAPI.handleProviderOpen(chest, player);
+          player.closeContainer();
+          simulateRestart(List.of(key));
+          helper.assertTrue(countFiles(helper, keys) == 1 && Files.exists(dataFile(helper, key)), "The opened container has no data file");
+          chest.performUpdate();
+          LootrSavedData reloaded = DataStorage.getExistingData(key);
+          helper.assertTrue(reloaded != null && reloaded.isDirty(), "Data that is only on disk is not marked as changed");
+          helper.assertTrue(reloaded.getVisualOpeners().contains(playerId) && reloaded.getActualOpeners().contains(playerId) && reloaded.getInventory(playerId) != null, "The data of the opened container was not read back");
+
+          // Sneak-clicking marks the container as unopened for the player; that is an opener change made through the container.
+          LootrAPI.handleProviderSneak(chest, player);
+          simulateRestart(List.of(key));
+          reloaded = DataStorage.getExistingData(key);
+          helper.assertTrue(reloaded != null && !reloaded.getVisualOpeners().contains(playerId), "A removed opener came back after a restart");
+          helper.assertTrue(reloaded.getActualOpeners().contains(playerId) && reloaded.getInventory(playerId) != null && reloaded.hasBeenOpened(), "The data of the opened container lost state");
+        })
+        .thenSucceed();
+  }
+
+  // ----- 16. Culling keeps data that names openers -----
+
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void dataWithOpenersIsNotCulled(GameTestHelper helper) {
+    UUID id = UUID.randomUUID();
+    ILootrInfoProvider provider = provider(helper, id, helper.absolutePos(BlockPos.ZERO), "Cull");
+    ServerPlayer player = LootrTestSupport.createRealPlayer(helper);
+    try {
+      LootrSavedData data = DataStorage.getData(provider);
+      helper.assertTrue(data.canBeCulled(), "Data without any content cannot be culled");
+
+      data.addVisualOpener(player);
+      boolean withVisual = data.canBeCulled();
+      data.removeVisualOpener(player);
+      helper.assertTrue(data.canBeCulled(), "Data without any content cannot be culled");
+      data.addActualOpener(player);
+      boolean withActual = data.canBeCulled();
+
+      // A refresh, as `ILootrInfoProvider.performRefresh` does it: the actual openers stay.
+      helper.assertTrue(data.createInventory(provider, player, DefaultLootFiller.getInstance()) != null && data.addVisualOpener(player), "No inventory was created");
+      helper.assertTrue(!data.canBeCulled(), "Data with an inventory can be culled");
+      data.refresh();
+      data.clearOpeners();
+      boolean refreshed = data.canBeCulled();
+      LootrAPI.LOG.info("[T08b] item d: data without inventories can be culled: with a visual opener = {}, with an actual opener = {}, after a refresh that keeps its actual opener = {}", withVisual, withActual, refreshed);
+      helper.assertTrue(!withVisual, "Culling would forget that a player sees the container as opened");
+      helper.assertTrue(!withActual, "Culling would forget that a player was counted for the container");
+      helper.assertTrue(data.getInventory(player.getUUID()) == null && data.getActualOpeners().contains(player.getUUID()), "The refresh did not leave the expected data");
+      helper.assertTrue(!refreshed, "Culling would forget who was counted for a refreshed container");
+    } finally {
+      storageCache().remove(ILootrInfo.generateInfoKey(id));
+    }
+    helper.succeed();
+  }
+
+  // ----- 17. An opening that fails leaves no traces -----
+
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH, timeoutTicks = CONVERSION_TIMEOUT_TICKS)
+  public void failedOpenLeavesNoTraces(GameTestHelper helper) {
+    BlockPos pos = new BlockPos(1, 1, 1);
+    LootrTestSupport.placeLootContainer(helper, pos, Blocks.CHEST, TABLE, 30L);
+    helper.startSequence()
+        .thenWaitUntil(() -> LootrTestSupport.assertBlockIs(helper, pos, LootrRegistry.getChestBlock()))
+        .thenExecute(() -> {
+          MinecraftServer server = helper.getLevel().getServer();
+          ILootrBlockEntity chest = LootrTestSupport.getLootrBlockEntity(helper, pos);
+          AccessorMixinBaseContainerBlockEntity lock = (AccessorMixinBaseContainerBlockEntity) chest.asBlockEntity();
+          ServerPlayer player = playerAt(helper, pos);
+          UUID playerId = LootrAPI.resolveServerPlayerTeam(player);
+          int looted = player.getStats().getValue(LootrRegistry.getLootedStat());
+          ConfigManager config = ConfigManager.get();
+          config.decay.decay_all = true;
+          config.refresh.refresh_all = true;
+          try {
+            lock.setLockKey(new LockCode("gametest"));
+            LootrAPI.handleProviderOpen(chest, player);
+            String locked = openingTraces(chest, player, looted);
+            lock.setLockKey(LockCode.NO_LOCK);
+
+            // A menu that is refused: the builder yields none.
+            LootrAPI.INSTANCE.handleProviderOpen(chest, player, (id, inventory, container, rows) -> null, false);
+            String refused = openingTraces(chest, player, looted);
+            LootrAPI.LOG.info("[T08b] item e: traces of an opening that failed: locked container = [{}], menu refused = [{}]", locked, refused);
+            helper.assertTrue(locked.isEmpty(), "Trying to open a locked container left traces: " + locked);
+            helper.assertTrue(refused.isEmpty(), "An opening whose menu was refused left traces: " + refused);
+
+            // The successful opening records all of it.
+            LootrAPI.INSTANCE.handleProviderOpen(chest, player, (id, inventory, container, rows) -> ChestMenu.threeRows(id, inventory, container), false);
+            LootrSavedData data = cached(chest.getInfoKey());
+            helper.assertTrue(openInventory(helper, player) == data.getInventory(playerId), "The menu does not show the stored inventory");
+            helper.assertTrue(data.getVisualOpeners().contains(playerId) && data.getActualOpeners().contains(playerId), "The opening was not recorded");
+            helper.assertTrue(player.getStats().getValue(LootrRegistry.getLootedStat()) == looted + 1, "The opening was not counted exactly once");
+            helper.assertTrue(DataStorage.getDecayValue(chest) == LootrAPI.getDecayValue() && DataStorage.getRefreshValue(chest) == LootrAPI.getRefreshValue(), "Decay and refresh were not started");
+            helper.assertTrue(chest.hasBeenOpened() && chest.isClientDecaying() && chest.isClientRefreshing(), "The container does not know that it was opened");
+            helper.assertTrue(openers(chest, helper.getLevel().registryAccess()).contains(playerId), "The update tag does not name the opener");
+
+            // Opening again counts nothing twice.
+            player.closeContainer();
+            LootrAPI.handleProviderOpen(chest, player);
+            helper.assertTrue(player.getStats().getValue(LootrRegistry.getLootedStat()) == looted + 1, "Opening again was counted");
+          } finally {
+            config.decay.decay_all = false;
+            config.refresh.refresh_all = false;
+            lock.setLockKey(LockCode.NO_LOCK);
+            player.closeContainer();
+            NewTickingData.getDecayData().clearTicking(server, chest.getInfoUUID());
+            NewTickingData.getRefreshData().clearTicking(server, chest.getInfoUUID());
+          }
+        })
+        .thenSucceed();
+  }
+
+  // ----- 18. Decay and refresh checks for a container without a server level -----
+
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void decayAndRefreshChecksTolerateMissingLevel(GameTestHelper helper) {
+    UUID id = UUID.randomUUID();
+    ResourceKey<Level> missing = ResourceKey.create(Registries.DIMENSION, LootrAPI.rl("gametest_no_such_dimension"));
+    ILootrInfoProvider provider = new CustomLootrInfoProvider(id, ILootrInfo.generateInfoKey(id), helper.absolutePos(BlockPos.ZERO), 27, TABLE, 1L, Component.literal("Nowhere"), missing, null, null, null, BuiltInLootrTypes.CHEST);
+    helper.assertTrue(provider.getInfoLevel() == null, "The test needs a container without a level");
+    helper.assertTrue(!ConfigManager.get().decay.decay_all && !ConfigManager.get().refresh.refresh_all, "The test needs the default configuration");
+    boolean decaying;
+    boolean refreshing;
+    try {
+      decaying = LootrAPI.isDecaying(provider);
+      refreshing = LootrAPI.isRefreshing(provider);
+    } catch (NullPointerException | ClassCastException e) {
+      throw new GameTestAssertException("Asking whether a container without a server level decays or refreshes crashes: " + e);
+    }
+    helper.assertTrue(!decaying && !refreshing, "A container without a level counts as decaying or refreshing");
+    helper.succeed();
+  }
+
+  // ----- 19. Entities that were never opened need no saved data to be synchronised -----
+
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void unopenedEntitiesNeedNoSavedDataForSync(GameTestHelper helper) {
+    BlockPos center = new BlockPos(3, 2, 3);
+    ServerPlayer player = playerAt(helper, center);
+    List<LootrChestMinecartEntity> carts = new ArrayList<>();
+    // The sync data covers the view distance, which the test server leaves at 0. Chunk loading clamps it to at
+    // least 2, so setting 2 here (and the old value afterwards) changes nothing for the chunks.
+    PlayerList players = helper.getLevel().getServer().getPlayerList();
+    int viewDistance = players.getViewDistance();
+    players.setViewDistance(Math.max(viewDistance, 2));
+    try {
+      for (int i = 0; i < 10; i++) {
+        LootrChestMinecartEntity cart = (LootrChestMinecartEntity) helper.spawn(LootrRegistry.getMinecart(), new BlockPos(1 + i % 5, 2, 2 + i / 5));
+        cart.setLootTableInternal(TABLE, 400L + i);
+        carts.add(cart);
+      }
+      List<String> keys = carts.stream().map(ILootrInfo::getInfoKey).toList();
+
+      // What tracking a container entity does for every player who starts to see it, three times over.
+      for (int round = 0; round < 3; round++) {
+        carts.forEach(cart -> cart.startSeenByPlayer(player));
+      }
+      long objects = countCached(keys);
+      long lookups = countLookedUp(keys);
+      LootrAPI.LOG.info("[T08b] item g: 10 unopened loot minecarts, tracking started 3 times each: saved data objects = {}, file lookups = {}", objects, lookups);
+      helper.assertTrue(objects == 0, "Starting to track created saved data for " + objects + " entities that were never opened");
+      helper.assertTrue(lookups == 10, "Expected one file lookup per entity but there were " + lookups);
+
+      // What a team change does for every player of the team.
+      Pair<List<Integer>, List<Integer>> sync = syncData(player);
+      objects = countCached(keys);
+      storage().save();
+      long files = countFiles(helper, keys);
+      LootrAPI.LOG.info("[T08b] item g: 10 unopened loot minecarts, sync data after a team change built once: saved data objects = {}, data files after a world save = {}", objects, files);
+      helper.assertTrue(objects == 0, "Building the sync data created saved data for " + objects + " entities that were never opened");
+      helper.assertTrue(files == 0, files + " data files were written for entities that were never opened");
+      helper.assertTrue(carts.stream().allMatch(cart -> sync.getSecond().contains(cart.getId())) && carts.stream().noneMatch(cart -> sync.getFirst().contains(cart.getId())), "Unopened entities are not reported as closed");
+
+      // An opened entity is still reported as opened: at once, and after a restart.
+      LootrChestMinecartEntity opened = carts.getFirst();
+      LootrAPI.handleProviderOpen(opened, player);
+      player.closeContainer();
+      helper.assertTrue(syncData(player).getFirst().contains(opened.getId()), "An opened entity is not reported as opened");
+      simulateRestart(List.of(keys.getFirst()));
+      Pair<List<Integer>, List<Integer>> afterRestart = syncData(player);
+      helper.assertTrue(afterRestart.getFirst().contains(opened.getId()) && afterRestart.getSecond().contains(carts.get(1).getId()), "The sync data is wrong after a restart");
+    } finally {
+      players.setViewDistance(viewDistance);
+      player.closeContainer();
+      carts.forEach(Entity::discard);
+    }
+    helper.succeed();
+  }
+
   // ----- On-disk format -----
 
   @SuppressWarnings("deprecation")
@@ -918,6 +1249,40 @@ public class LootrCoreTests implements FabricGameTest {
       savedOwners.add(inventory.getUUID("uuid"));
     }
     helper.assertTrue(inventories.size() == owners.size() && savedOwners.equals(new HashSet<>(owners)), "Saved inventories belong to " + savedOwners);
+  }
+
+  // What an opening leaves behind for the player, as text; empty when there is nothing.
+  private static String openingTraces(ILootrBlockEntity chest, ServerPlayer player, int lootedBefore) {
+    List<String> traces = new ArrayList<>();
+    LootrSavedData data = DataStorage.getExistingData(chest.getInfoKey());
+    if (data != null && data.hasVisualOpened(player)) {
+      traces.add("visual opener");
+    }
+    if (data != null && data.hasServerOpened(player)) {
+      traces.add("actual opener");
+    }
+    if (player.getStats().getValue(LootrRegistry.getLootedStat()) != lootedBefore) {
+      traces.add("looted statistic");
+    }
+    if (DataStorage.getDecayValue(chest) != -1) {
+      traces.add("decay started");
+    }
+    if (DataStorage.getRefreshValue(chest) != -1) {
+      traces.add("refresh started");
+    }
+    if (player.containerMenu != player.inventoryMenu) {
+      traces.add("open menu");
+    }
+    return String.join(", ", traces);
+  }
+
+  // The sync data that is sent after a team change (ids of opened and of closed entities); a protected method builds it.
+  private static Pair<List<Integer>, List<Integer>> syncData(ServerPlayer player) {
+    return new PlatformAPIImpl() {
+      Pair<List<Integer>, List<Integer>> build() {
+        return getSyncData(player);
+      }
+    }.build();
   }
 
   private static Set<UUID> uuids(CompoundTag tag, String name) {
@@ -1050,6 +1415,22 @@ public class LootrCoreTests implements FabricGameTest {
   private static void simulateRestart(Collection<String> keys) {
     storage().save();
     keys.forEach(storageCache()::remove);
+  }
+
+  // Chunks are generated and loaded on other threads in their own time, while the test server runs its ticks
+  // without a pause in between: under load a limit in ticks passes within a second, long before the chunks
+  // are there. So chunks are waited for against the clock, the way a synchronous chunk load does it: the
+  // server thread works off the chunk tasks until the condition holds. No tick passes meanwhile, which
+  // leaves the tick limit of the test to what is measured in ticks.
+  private static void awaitChunks(GameTestHelper helper, BooleanSupplier condition, String failure) {
+    ServerChunkCache chunks = helper.getLevel().getChunkSource();
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(CHUNK_WAIT_SECONDS);
+    while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
+      if (!chunks.pollTask()) {
+        LockSupport.parkNanos(100_000L);
+      }
+    }
+    helper.assertTrue(condition.getAsBoolean(), failure + " within " + CHUNK_WAIT_SECONDS + " seconds");
   }
 
   private static boolean surroundingsLoaded(ServerLevel level, ChunkPos center) {

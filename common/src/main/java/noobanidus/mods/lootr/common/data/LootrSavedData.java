@@ -281,16 +281,17 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
 
   @Override
   public void refresh() {
-    closeOpenMenus();
+    closeOpenMenus(null);
     inventories.clear();
     hasBeenOpened = false;
     markChanged();
   }
 
-  // A menu that stays open across a refresh keeps showing an inventory that is no longer stored: what is put
-  // into it is lost and what is taken out of it comes on top of the new loot. Closing it makes the next
-  // opening create the new inventory.
-  private void closeOpenMenus() {
+  // A menu that stays open on an inventory that is no longer stored (after a refresh, or after the inventory
+  // was cleared) keeps showing it: what is put into it is lost and what is taken out of it comes on top of
+  // the new loot. Closing it makes the next opening create the new inventory. `only` limits this to the
+  // menus that show that one inventory; null means every inventory of this container.
+  private void closeOpenMenus(@Nullable LootrInventory only) {
     MinecraftServer server = LootrAPI.getServer();
     if (server == null || inventories.isEmpty()) {
       return;
@@ -300,7 +301,7 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
         continue;
       }
       for (Slot slot : player.containerMenu.slots) {
-        if (slot.container instanceof LootrInventory inventory && inventory.getInfo() == this) {
+        if (slot.container instanceof LootrInventory inventory && (only == null ? inventory.getInfo() == this : inventory == only)) {
           player.closeContainer();
           player.displayClientMessage(Component.translatable("lootr.message.refreshed_while_open"), true);
           break;
@@ -315,8 +316,10 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
     return hasBeenOpened;
   }
 
+  // Openers are content as well: without any inventory they still say who sees the container as opened and
+  // who was counted for it (statistic, advancements, `lootr:loot_count`). A refresh leaves the actual openers.
   public boolean canBeCulled() {
-    if (!inventories.isEmpty()) {
+    if (!inventories.isEmpty() || !openers.isEmpty() || !actualOpeners.isEmpty()) {
       return false;
     }
 
@@ -330,7 +333,10 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
 
   @Override
   public boolean clearInventories(UUID id) {
-    if (inventories.remove(id) != null) {
+    LootrInventory inventory = inventories.get(id);
+    if (inventory != null) {
+      closeOpenMenus(inventory);
+      inventories.remove(id);
       removeOpener(id);
       setDirty();
       return true;
@@ -342,6 +348,12 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
   @Override
   public void save(File pFile, HolderLookup.Provider provider) {
     if (isDirty()) {
+      // Data without content that has no file needs none: nobody opened the container, and what it knows
+      // about the container comes from the container again. An existing file is still brought up to date.
+      if (canBeCulled() && !pFile.exists()) {
+        setDirty(false);
+        return;
+      }
       pFile.getParentFile().mkdirs();
     }
     super.save(pFile, provider);

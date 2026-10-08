@@ -269,7 +269,8 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
         return true;
       }
     }
-    if (LootrAPI.isTaggedStructurePresent((ServerLevel) tile.getInfoLevel(), new ChunkPos(tile.getInfoPos()), LootrTags.Structure.DECAY_STRUCTURES, tile.getInfoPos())) {
+    // Structures are known to a server level only; the level can be missing (unknown dimension) or a client level.
+    if (tile.getInfoLevel() instanceof ServerLevel level && LootrAPI.isTaggedStructurePresent(level, new ChunkPos(tile.getInfoPos()), LootrTags.Structure.DECAY_STRUCTURES, tile.getInfoPos())) {
       return true;
     }
     return isDimensionDecaying(tile.getInfoDimension());
@@ -287,7 +288,7 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
         return true;
       }
     }
-    if (LootrAPI.isTaggedStructurePresent((ServerLevel) tile.getInfoLevel(), new ChunkPos(tile.getInfoPos()), LootrTags.Structure.REFRESH_STRUCTURES, tile.getInfoPos())) {
+    if (tile.getInfoLevel() instanceof ServerLevel level && LootrAPI.isTaggedStructurePresent(level, new ChunkPos(tile.getInfoPos()), LootrTags.Structure.REFRESH_STRUCTURES, tile.getInfoPos())) {
       return true;
     }
     return isDimensionRefreshing(tile.getInfoDimension());
@@ -306,7 +307,6 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
   public static boolean isVanillaTextures() {
     return get().client.vanilla_textures;
   }
-
 
   public static SyncedConfig getConfigForSync () {
     return get().configSync();

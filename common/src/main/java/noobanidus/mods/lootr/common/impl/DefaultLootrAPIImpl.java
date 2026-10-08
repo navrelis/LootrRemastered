@@ -95,21 +95,9 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
       PlatformAPI.alertContainerStatus(player, ContainerStatus.DECAY, ContainerStatus.Type.COMPLETE, -1);
 
       return;
-    } else {
-      if (provider.canDecay()) {
-        int decayValue = LootrAPI.getRemainingDecayValue(provider);
-        if (decayValue > 0) {
-          PlatformAPI.alertContainerStatus(player, ContainerStatus.DECAY, ContainerStatus.Type.ONGOING, decayValue / 20);
-
-        } else if (decayValue == -1) {
-          if (LootrAPI.isDecaying(provider)) {
-            LootrAPI.setDecaying(provider);
-            PlatformAPI.alertContainerStatus(player, ContainerStatus.DECAY, ContainerStatus.Type.START, LootrAPI.getDecayValue() / 20);
-          }
-        }
-      }
     }
-    provider.performTrigger(player);
+    // A refresh that is due does not depend on this opening succeeding; it comes first so that the menu
+    // shows the new inventory.
     boolean shouldUpdate = false;
     if (LootrAPI.isRefreshed(provider) && provider.canRefresh()) {
       provider.performRefresh();
@@ -118,6 +106,28 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
 
       shouldUpdate = true;
     }
+    // Everything after this records the opening (decay and refresh start, advancements, statistic, openers).
+    // It must not happen for an opening that fails, so the menu is opened first.
+    MenuProvider menuProvider = LootrAPI.getInventory(provider, player, menuBuilder);
+    if (menuProvider == null || (!hideMenu && player.openMenu(menuProvider).isEmpty())) {
+      if (shouldUpdate) {
+        provider.performUpdate(player);
+      }
+      return;
+    }
+    if (provider.canDecay()) {
+      int decayValue = LootrAPI.getRemainingDecayValue(provider);
+      if (decayValue > 0) {
+        PlatformAPI.alertContainerStatus(player, ContainerStatus.DECAY, ContainerStatus.Type.ONGOING, decayValue / 20);
+
+      } else if (decayValue == -1) {
+        if (LootrAPI.isDecaying(provider)) {
+          LootrAPI.setDecaying(provider);
+          PlatformAPI.alertContainerStatus(player, ContainerStatus.DECAY, ContainerStatus.Type.START, LootrAPI.getDecayValue() / 20);
+        }
+      }
+    }
+    provider.performTrigger(player);
     if (provider.canRefresh()) {
       int refreshValue = LootrAPI.getRemainingRefreshValue(provider);
       if (refreshValue > 0) {
@@ -128,10 +138,6 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
           PlatformAPI.alertContainerStatus(player, ContainerStatus.REFRESH, ContainerStatus.Type.START, LootrAPI.getRefreshValue() / 20);
         }
       }
-    }
-    MenuProvider menuProvider = LootrAPI.getInventory(provider, player, menuBuilder);
-    if (menuProvider == null) {
-      return;
     }
     // This is pretty important, should be moved out of here
     if (!provider.hasServerOpened(player)) {
@@ -145,9 +151,6 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
 
     if (shouldUpdate) {
       provider.performUpdate(player);
-    }
-    if (!hideMenu) {
-      player.openMenu(menuProvider);
     }
     PiglinAi.angerNearbyPiglins(player, true);
   }

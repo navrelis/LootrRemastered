@@ -124,6 +124,10 @@ public record RandomizableContainerBlockEntityLootrInfoProvider(
 
   @Override
   public void markDataChanged() {
+    // As in `ILootrInfoProvider`: this must not create data for a container that nobody opened.
+    if (LootrAPI.getExistingData(getInfoKey()) == null) {
+      return;
+    }
     ILootrSavedData data = LootrAPI.getData(this);
     if (data != null) {
       data.markChanged();

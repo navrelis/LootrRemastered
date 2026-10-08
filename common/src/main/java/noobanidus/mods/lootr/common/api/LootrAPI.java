@@ -701,6 +701,21 @@ public class LootrAPI {
       return;
     }
 
+    // World generation gives loot tables to containers on its own threads, also to those of chunks that are
+    // already loaded and may be open in a menu. Entities and players are only touched on the server thread,
+    // so the work is handed over to it. The server runs it within a few ticks; until then it holds the block
+    // entity, and one that was removed meanwhile (replaced, or its chunk unloaded) is left alone. A stopped
+    // server runs the task on the calling thread, hence the second check.
+    MinecraftServer server = level.getServer();
+    if (server != null && !server.isSameThread()) {
+      server.execute(() -> {
+        if (server.isSameThread() && !blockEntity.isRemoved()) {
+          closeContainers(blockEntity);
+        }
+      });
+      return;
+    }
+
     AABB aabb = new AABB(blockEntity.getBlockPos()).inflate(8.5);
     List<Player> players = level.getEntities(EntityTypeTest.forClass(Player.class), aabb, (a) -> true);
 

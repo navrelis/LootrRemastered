@@ -37,6 +37,7 @@ import noobanidus.mods.lootr.common.api.data.SimpleLootrEntityInstance;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrEntity;
 import noobanidus.mods.lootr.common.api.data.inventory.ILootrInventory;
 import noobanidus.mods.lootr.common.api.registry.LootrRegistry;
+import noobanidus.mods.lootr.common.data.DataStorage;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinItemFrame;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -83,7 +84,7 @@ public class LootrItemFrame extends ItemFrame implements ILootrEntity {
     // packet to create the entity, thus resulting in the
     // resolved entity being null.
 
-    if (hasVisualOpened(pPlayer)) {
+    if (DataStorage.hasVisualOpened(this, pPlayer)) {
       performOpen(pPlayer);
     } else {
       performClose(pPlayer);

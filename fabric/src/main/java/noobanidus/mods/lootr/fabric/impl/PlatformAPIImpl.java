@@ -23,6 +23,8 @@ import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinBaseContainerBlo
 import noobanidus.mods.lootr.fabric.network.to_client.*;
 import noobanidus.mods.lootr.fabric.network.to_server.PacketRequestUpdate;
 
+import java.nio.file.Path;
+
 public class PlatformAPIImpl extends DefaultPlatformAPIImpl implements IPlatformAPI {
   @Override
   public void performEntityOpen(ILootrEntity entity, ServerPlayer player) {
@@ -127,5 +129,10 @@ public class PlatformAPIImpl extends DefaultPlatformAPIImpl implements IPlatform
   @Override
   public boolean isModLoaded(String modId) {
     return FabricLoader.getInstance().isModLoaded(modId);
+  }
+
+  @Override
+  public Path getConfigDirectory() {
+    return FabricLoader.getInstance().getConfigDir();
   }
 }

@@ -1,0 +1,9 @@
+{
+  "required_mods": ["lootr", "lootr_gametest_absent_mod"],
+  "entries": [
+    {
+      "tables": ["lootr_gametest:integrated/target_required_missing"],
+      "pool": "lootr_gametest:bcd"
+    }
+  ]
+}

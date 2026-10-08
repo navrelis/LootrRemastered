@@ -9,7 +9,8 @@
   "entrypoints": {
     "fabric-gametest": [
       "noobanidus.mods.lootr.gametest.LootrSmokeTests",
-      "noobanidus.mods.lootr.gametest.LootrItemBanTests"
+      "noobanidus.mods.lootr.gametest.LootrItemBanTests",
+      "noobanidus.mods.lootr.gametest.LootrIntegratedLootTests"
     ]
   },
   "depends": {

@@ -71,6 +71,7 @@ import noobanidus.mods.lootr.common.data.DataStorage;
 import noobanidus.mods.lootr.common.data.LootrInventory;
 import noobanidus.mods.lootr.common.data.LootrSavedData;
 import noobanidus.mods.lootr.common.impl.LootrServiceRegistry;
+import noobanidus.mods.lootr.common.integratedloot.IntegratedLootCommand;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinBaseContainerBlockEntity;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinChunkMap;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinMinecraftServer;
@@ -672,6 +673,7 @@ public class CommandLootr {
 
           return 1;
         }))));
+    builder.then(IntegratedLootCommand.build());
     return builder;
   }
 

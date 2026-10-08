@@ -1,0 +1,9 @@
+{
+  "required_mods": ["lootr"],
+  "entries": [
+    {
+      "tables": ["lootr_gametest:integrated/target_required_present"],
+      "pool": "lootr_gametest:bcd"
+    }
+  ]
+}

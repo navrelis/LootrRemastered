@@ -18,6 +18,7 @@ import noobanidus.mods.lootr.common.api.config.SyncedConfig;
 import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
 import noobanidus.mods.lootr.common.config.ConfigManagerBase;
 import noobanidus.mods.lootr.common.impl.LootrServiceRegistry;
+import noobanidus.mods.lootr.common.integratedloot.IntegratedLootSettings;
 import noobanidus.mods.lootr.common.itemban.ItemBanSettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -81,6 +82,8 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
   public Team team = new Team();
   @ConfigEntry.Gui.CollapsibleObject
   public ItemBanOptions item_bans = new ItemBanOptions();
+  @ConfigEntry.Gui.CollapsibleObject
+  public IntegratedLootOptions integrated_loot = new IntegratedLootOptions();
 
   public static void reset() {
     LootrServiceRegistry.clearReplacements();
@@ -312,6 +315,16 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     return new ItemBanSettings(options.respect_item_obliterator, options.filter_all_loot, options.scrub_saved_inventories, options.extra_banned_items);
   }
 
+  // Snapshot of the `integrated_loot` section for common code (see IntegratedLoot#applySettings). A configuration
+  // file written before the section existed keeps the defaults of the field initialiser.
+  public IntegratedLootSettings integratedLootSettings() {
+    IntegratedLootOptions options = integrated_loot;
+    if (options == null) {
+      return IntegratedLootSettings.DEFAULT;
+    }
+    return new IntegratedLootSettings(options.enabled, options.modded_item_weight, options.skip_existing_items, options.skip_map_items, options.max_extra_stacks, options.debug_log);
+  }
+
   private SyncedConfig configSync () {
     return new SyncedConfig(
         conversion.bypass_spawn_protection,
@@ -424,5 +437,23 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     public boolean scrub_saved_inventories = true;
     // Additional banned items: "namespace:path" item ids or "#namespace:path" item tags.
     public List<String> extra_banned_items = List.of();
+  }
+
+  public static class IntegratedLootOptions {
+    // Add a few stacks from other loot tables to the container loot tables selected by data pack rules.
+    public boolean enabled = true;
+    // Draw weight of items from other mods; vanilla items weigh 1. Minimum 1.
+    public int modded_item_weight = 2;
+    // Do not add an item the container already yields.
+    public boolean skip_existing_items = true;
+    // Do not create explorer maps (structure searches) for added loot.
+    public boolean skip_map_items = true;
+    // Upper limit of added stacks per container, whatever a rule asks for.
+    @ConfigEntry.BoundedDiscrete(min = IntegratedLootSettings.MIN_EXTRA_STACKS, max = IntegratedLootSettings.MAX_EXTRA_STACKS)
+    public int max_extra_stacks = 4;
+    // Log one line per extended loot roll.
+    public boolean debug_log = false;
+    // Set once the settings of `lootintegrations.json` have been taken over; set to false to take them over again.
+    public boolean imported_loot_integrations_config = false;
   }
 }

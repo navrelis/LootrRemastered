@@ -1,0 +1,10 @@
+{
+  "sources": [
+    {
+      "table": "lootr_gametest:integrated/source_b"
+    },
+    {
+      "table": "lootr_gametest:integrated/source_c"
+    }
+  ]
+}

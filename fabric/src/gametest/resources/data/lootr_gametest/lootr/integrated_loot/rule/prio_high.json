@@ -1,0 +1,14 @@
+{
+  "priority": 10,
+  "entries": [
+    {
+      "tables": ["lootr_gametest:integrated/prio/both"],
+      "pool": "lootr_gametest:e",
+      "rolls": 1
+    },
+    {
+      "tables": ["lootr_gametest:integrated/prio/excluded"],
+      "exclude": true
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.ResourcePackActivationType;
+import net.fabricmc.fabric.api.resource.SimpleResourceReloadListener;
 import net.fabricmc.fabric.impl.resource.loader.ResourceManagerHelperImpl;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
@@ -19,14 +20,22 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.util.profiling.ProfilerFiller;
 import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.block.entity.BlockEntityTicker;
 import noobanidus.mods.lootr.common.chunk.LoadedChunks;
 import noobanidus.mods.lootr.common.command.CommandLootr;
 import noobanidus.mods.lootr.common.data.DataStorage;
+import noobanidus.mods.lootr.common.integratedloot.IntegratedLoot;
+import noobanidus.mods.lootr.common.integratedloot.IntegratedLootDefinitions;
 import noobanidus.mods.lootr.common.itemban.ItemBans;
 import noobanidus.mods.lootr.fabric.config.ConfigManager;
 import noobanidus.mods.lootr.fabric.network.to_client.PacketSyncConfig;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 public class LootrEventsInit {
   public static MinecraftServer serverInstance;
@@ -35,11 +44,13 @@ public class LootrEventsInit {
     ServerLifecycleEvents.SERVER_STARTING.register(server -> {
       serverInstance = server;
       LoadedChunks.clear();
+      IntegratedLoot.onServerStarting(server);
     });
 
     ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
       serverInstance = null;
       LoadedChunks.clear();
+      IntegratedLoot.onServerStopped();
     });
 
     ServerTickEvents.END_SERVER_TICK.register(BlockEntityTicker::onServerTick);
@@ -62,6 +73,31 @@ public class LootrEventsInit {
     // Fires whenever data packs are (re)loaded, including `/reload`: forget which ban sources were reported
     // as failing and drop the parsed `extra_banned_items` (tags may have changed).
     CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> ItemBans.onDataReload());
+
+    // Integrated loot: the listener only reads the pool and rule files. They are resolved against the loot tables
+    // when the server announces the registries of the same data load, which is right after it put them in place
+    // (on a reload in the same server thread task that swaps them in).
+    ResourceManagerHelper.get(PackType.SERVER_DATA).registerReloadListener(new SimpleResourceReloadListener<IntegratedLootDefinitions>() {
+      @Override
+      public ResourceLocation getFabricId() {
+        return LootrAPI.rl("integrated_loot");
+      }
+
+      @Override
+      public CompletableFuture<IntegratedLootDefinitions> load(ResourceManager manager, ProfilerFiller profiler, Executor executor) {
+        return CompletableFuture.supplyAsync(() -> IntegratedLootDefinitions.load(manager), executor);
+      }
+
+      @Override
+      public CompletableFuture<Void> apply(IntegratedLootDefinitions data, ResourceManager manager, ProfilerFiller profiler, Executor executor) {
+        return CompletableFuture.runAsync(() -> IntegratedLoot.setDefinitions(data), executor);
+      }
+    });
+    CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> {
+      if (!client) {
+        IntegratedLoot.onDataLoaded(registries);
+      }
+    });
 
     ModContainer container = FabricLoader.getInstance().getModContainer(LootrAPI.MODID).orElseThrow();
 

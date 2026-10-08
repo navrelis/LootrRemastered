@@ -16,6 +16,9 @@ import noobanidus.mods.lootr.common.api.data.blockentity.ILootrBlockEntity;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrCart;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrEntity;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
+
+import java.nio.file.Path;
 
 @ApiStatus.Internal
 public interface IPlatformAPI {
@@ -107,5 +110,11 @@ public interface IPlatformAPI {
   // Has a default so that existing implementations keep compiling and linking.
   default boolean isModLoaded(String modId) {
     return false;
+  }
+
+  // The directory the configuration files of all mods live in; null if the platform does not tell.
+  @Nullable
+  default Path getConfigDirectory() {
+    return null;
   }
 }

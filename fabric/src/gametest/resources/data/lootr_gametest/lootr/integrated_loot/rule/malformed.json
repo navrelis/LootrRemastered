@@ -1,0 +1,9 @@
+{
+  "priority": "high",
+  "entries": [
+    {
+      "tables": "lootr_gametest:integrated/target_a",
+      "pool": 5
+    }
+  ]
+}

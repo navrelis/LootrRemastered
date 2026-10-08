@@ -1,0 +1,10 @@
+{
+  "sources": [
+    {
+      "table": "lootr_gametest:integrated/no_such_table"
+    },
+    {
+      "table": "lootr_gametest:integrated/another_missing_table"
+    }
+  ]
+}

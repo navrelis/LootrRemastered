@@ -22,6 +22,8 @@
     "hopper.MixinAbstractContainerMenu",
     "hopper.MixinEntitySelector",
     "hopper.MixinHopperBlockEntity",
+    "integratedloot.MixinExplorationMapFunction",
+    "integratedloot.MixinLootTable",
     "integration.create.MixinSchematicPrinter",
     "itemban.MixinLootTable",
     "lock.MixinBaseContainerBlockEntity",

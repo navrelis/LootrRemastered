@@ -14,6 +14,9 @@ import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
 import noobanidus.mods.lootr.common.api.data.blockentity.ILootrBlockEntity;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrCart;
 import noobanidus.mods.lootr.common.api.data.entity.ILootrEntity;
+import org.jetbrains.annotations.Nullable;
+
+import java.nio.file.Path;
 
 /**
  * This contains platform-specific (i.e., NeoForge/Fabric) methods.
@@ -131,5 +134,11 @@ public class PlatformAPI {
   public static boolean isModLoaded(String modId) {
     IPlatformAPI instance = INSTANCE;
     return instance != null && instance.isModLoaded(modId);
+  }
+
+  @Nullable
+  public static Path getConfigDirectory() {
+    IPlatformAPI instance = INSTANCE;
+    return instance == null ? null : instance.getConfigDirectory();
   }
 }

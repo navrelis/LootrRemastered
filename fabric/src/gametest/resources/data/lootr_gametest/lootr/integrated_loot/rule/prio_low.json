@@ -1,0 +1,14 @@
+{
+  "priority": 1,
+  "entries": [
+    {
+      "tables": ["lootr_gametest:integrated/prio/*"],
+      "pool": "lootr_gametest:bcd",
+      "rolls": 1
+    },
+    {
+      "tables": ["lootr_gametest:integrated/prio/first"],
+      "pool": "lootr_gametest:e"
+    }
+  ]
+}

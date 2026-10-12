@@ -47,3 +47,4 @@
 - Precision override, T13a to Opus: the run's numbers carry the owner's yes or no on removing 11 jars, and a wrong reading of a ban count or an empty roll would go unnoticed.
 - Precision override, T13c to Opus: an unattended client start of a 413-mod pack has no spec for what goes wrong; preparation is split off to Sonnet (T13b).
 - Client scene is driven by a data pack (functions run with permission level 2), so `level.dat` is not edited.
+- The client run waits for T18 so that the jar shown in the client is the final jar; the lock is released in between.

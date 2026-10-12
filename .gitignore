@@ -42,3 +42,5 @@ oxipng.exe
 datapacks/*/.cache/
 datapacks/*/*.zip
 datapacks/*.zip
+# local status board, not published
+.knowledge/

@@ -49,3 +49,9 @@
 - Client scene is driven by a data pack (functions run with permission level 2), so `level.dat` is not edited.
 - The client run waits for T18 so that the jar shown in the client is the final jar; the lock is released in between.
 - Precision override, T20 to Opus: finding where time goes in hot paths shared with 20 other loot mixins needs profiling judgment; a wrong diagnosis would cost a round of pointless changes. It is read-only so it can run beside T18.
+
+## Fourth lead session (2026-10-13)
+- The current build went into the server copy before the audit instead of after T21: the audit should measure the code that T21 changes.
+- T21 takes audit proposals 1 (do) and 2 (maybe: nil gain with Lithium, but the mod is released publicly and the guard is one condition without risk). Proposals 3 to 8 are not implemented: each is below the measurement spread or costs safety (per-item ban cache is wrong once Item Obliterator bans by component data).
+- T21 goes to Sonnet: both changes have an exact specification and no thread-safety or invalidation question.
+- No before/after roll timing for T21: neither change touches the roll path; the proof is game tests. R9 is answered with the audit figures.

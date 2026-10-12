@@ -55,9 +55,12 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.lang.reflect.RecordComponent;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -440,15 +443,61 @@ final class VerifyScan {
       return;
     }
     workers.stage("Listing banned items");
-    for (Map.Entry<ResourceLocation, Facts> entry : new TreeMap<>(facts).entrySet()) {
+    Map<ResourceLocation, Facts> sorted = new TreeMap<>(facts);
+    // A table also reaches a banned item through the loaded tables it refers to by nested table entries. Tables
+    // that name one themselves are the start; the tables that refer to a table that reaches one are added from
+    // there, backwards along the references, each at most once. This is one pass over all references however
+    // deep the chains are, and it ends on cycles because a table is queued only the first time it is reached.
+    Map<ResourceLocation, Set<String>> nested = new HashMap<>();
+    Map<ResourceLocation, List<ResourceLocation>> referrers = new HashMap<>();
+    Set<ResourceLocation> reaching = new HashSet<>();
+    Deque<ResourceLocation> queue = new ArrayDeque<>();
+    for (Map.Entry<ResourceLocation, Facts> entry : sorted.entrySet()) {
+      ResourceLocation id = entry.getKey();
       Facts tableFacts = entry.getValue();
-      if (tableFacts.bannedItems.isEmpty() && tableFacts.bannedTags.isEmpty()) {
+      if (namesBannedItem(tableFacts)) {
+        reaching.add(id);
+        queue.add(id);
+      }
+      for (TableAnalyzer.Reference reference : tableFacts.references) {
+        if (!reference.kind().equals(ReferenceIndex.NESTED_TABLE)) {
+          continue;
+        }
+        // References to tables that were not loaded are missing references, and a table is no use to itself.
+        ResourceLocation target = ResourceLocation.tryParse(reference.table());
+        if (target == null || target.equals(id) || !facts.containsKey(target)) {
+          continue;
+        }
+        nested.computeIfAbsent(id, ignored -> new TreeSet<>()).add(target.toString());
+        referrers.computeIfAbsent(target, ignored -> new ArrayList<>()).add(id);
+      }
+    }
+    for (ResourceLocation current = queue.poll(); current != null; current = queue.poll()) {
+      for (ResourceLocation referrer : referrers.getOrDefault(current, List.of())) {
+        if (reaching.add(referrer)) {
+          queue.add(referrer);
+        }
+      }
+    }
+    for (Map.Entry<ResourceLocation, Facts> entry : sorted.entrySet()) {
+      Facts tableFacts = entry.getValue();
+      List<String> via = new ArrayList<>();
+      for (String target : nested.getOrDefault(entry.getKey(), Set.of())) {
+        if (reaching.contains(ResourceLocation.parse(target))) {
+          via.add(target);
+        }
+      }
+      if (!namesBannedItem(tableFacts) && via.isEmpty()) {
         continue;
       }
       List<BannedTag> tags = new ArrayList<>();
       tableFacts.bannedTags.forEach((tag, tagFacts) -> tags.add(new BannedTag(tag, tagFacts.banned(), tagFacts.size())));
-      data.bannedItems.add(new BannedItems(entry.getKey().toString(), originOfTable(entry.getKey()), List.copyOf(tableFacts.bannedItems), tags));
+      data.bannedItems.add(new BannedItems(entry.getKey().toString(), originOfTable(entry.getKey()), List.copyOf(tableFacts.bannedItems), tags, List.copyOf(via)));
     }
+  }
+
+  private static boolean namesBannedItem(Facts tableFacts) {
+    return !tableFacts.bannedItems.isEmpty() || !tableFacts.bannedTags.isEmpty();
   }
 
   // ----- E: tables that cannot produce anything (the static part) -----

@@ -10,7 +10,6 @@
     { "table": "minecraft:chests/trial_chambers/corridor", "weight": 2 },
     { "table": "minecraft:chests/trial_chambers/entrance", "weight": 1 },
     { "table": "minecraft:chests/trial_chambers/intersection", "weight": 1 },
-    { "table": "minecraft:chests/trial_chambers/intersection_barrel", "weight": 1 },
     { "table": "minecraft:chests/trial_chambers/supply", "weight": 1 }
   ]
 }

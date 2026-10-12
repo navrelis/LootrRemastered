@@ -70,7 +70,7 @@ import java.util.function.Predicate;
  * <li>`loot_table/verify/`: tables that fail to load (unknown item, broken JSON, unknown entry type), tables with
  * unmet load conditions, tables that cannot produce, one that never drops, one that throws when rolled, one with
  * banned items and one that refers to missing tables; `chests/unused_never_drops` never drops either and is used
- * by nothing.</li>
+ * by nothing. The `nested_*` tables reach the banned item through nested tables, inline tables and cycles.</li>
  * <li>`loot_tables/verify/`: two files in the folder the game no longer reads.</li>
  * <li>`structure/verify/containers.nbt`: a structure template with one block per case. It was written once by a
  * throw-away program (plain NBT, gzip without a time stamp, so the bytes are reproducible) and checked in. Along x:
@@ -315,8 +315,40 @@ public class LootrVerifyTests implements FabricGameTest {
       JsonObject tag = one(mixed.getAsJsonArray("tags"), "tag", NAMESPACE + "verify/mixed");
       helper.assertTrue(strings(tag.getAsJsonArray("banned")).equals(List.of("minecraft:jigsaw")) && tag.get("size").getAsInt() == 2, "Unexpected banned tag " + tag);
       helper.assertTrue(strings(one(banned, "table", NAMESPACE + "verify/only_banned").getAsJsonArray("items")).equals(List.of("minecraft:jigsaw")), "The table with only a banned item is not listed");
-      helper.assertTrue(banned.size() == 2 && count(report, "banned_item", "info") == 2, "Expected exactly the two fixtures but got " + banned);
+      helper.assertTrue(mixed.getAsJsonArray("via").isEmpty() && one(banned, "table", NAMESPACE + "verify/only_banned").getAsJsonArray("via").isEmpty(), "A table without nested tables was reported with a nested table");
     });
+  }
+
+  @GameTest(template = EMPTY_STRUCTURE, batch = RUN_BATCH)
+  public void bannedItemsAreFoundThroughNestedTables(GameTestHelper helper) {
+    withSharedRun(helper, report -> {
+      JsonArray banned = findings(report, "banned_item");
+      // Direct: the two tables that name the banned item themselves.
+      // One level: refers to a table that names it.
+      assertBannedVia(helper, banned, "verify/nested_one", List.of(), List.of("verify/only_banned"));
+      // Two levels: refers to a table that refers to a table that names it.
+      assertBannedVia(helper, banned, "verify/nested_two", List.of(), List.of("verify/nested_one"));
+      // Several: the tables that lead to it, sorted, without the one that leads nowhere (`integrated/plain`).
+      assertBannedVia(helper, banned, "verify/nested_many", List.of(), List.of("verify/nested_one", "verify/nested_two", "verify/only_banned"));
+      // Its own item and a nested one are both reported; an inline table counts as part of the table itself.
+      assertBannedVia(helper, banned, "verify/nested_and_own", List.of("minecraft:jigsaw"), List.of("verify/nested_one"));
+      assertBannedVia(helper, banned, "verify/nested_inline", List.of("minecraft:jigsaw"), List.of());
+      // Cycles end: the two tables refer to each other and one of them to a table with the item. The tables that
+      // refer only to each other (`nested_loop_x` also to itself) reach nothing and are not listed.
+      assertBannedVia(helper, banned, "verify/nested_cycle_a", List.of(), List.of("verify/nested_cycle_b"));
+      assertBannedVia(helper, banned, "verify/nested_cycle_b", List.of(), List.of("verify/nested_cycle_a", "verify/only_banned"));
+      helper.assertTrue(find(banned, "table", NAMESPACE + "verify/nested_loop_x").isEmpty() && find(banned, "table", NAMESPACE + "verify/nested_loop_y").isEmpty(), "A cycle without a banned item was reported: " + banned);
+      helper.assertTrue(banned.size() == 9 && count(report, "banned_item", "info") == 9, "Expected exactly the nine fixtures but got " + banned);
+      // The Markdown report names the tables the item is reached through.
+      String markdown = read(sharedResult.files().markdown());
+      helper.assertTrue(markdown.contains("- `" + NAMESPACE + "verify/nested_two`: banned items of nested tables (through `" + NAMESPACE + "verify/nested_one`)"), "The Markdown report does not say where the item is reached through");
+      helper.assertTrue(markdown.contains("- `" + NAMESPACE + "verify/nested_and_own`: items `minecraft:jigsaw` (through `" + NAMESPACE + "verify/nested_one`)"), "The Markdown report lacks the table with both");
+    });
+  }
+
+  private static void assertBannedVia(GameTestHelper helper, JsonArray banned, String name, List<String> items, List<String> via) {
+    JsonObject finding = one(banned, "table", NAMESPACE + name);
+    helper.assertTrue(strings(finding.getAsJsonArray("items")).equals(items) && finding.getAsJsonArray("tags").isEmpty() && strings(finding.getAsJsonArray("via")).equals(via.stream().map(id -> NAMESPACE + id).toList()), "Unexpected finding " + finding);
   }
 
   // ----- E: cannot_produce, roll_error, always_empty_in_rolls -----

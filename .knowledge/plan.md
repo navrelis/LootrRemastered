@@ -39,8 +39,10 @@ Session handed over a second time on 2026-10-09 01:15: see handoff.md. Open: T13
 | T17 | Documentation pass 1: CHANGELOG entry for T16, all-loot filter wording in README and CurseForge description, `art\README.md` | Sonnet | short | - | Texts match the code and the known limitations; no other file touched | done |
 | T13b | Client run preparation: pack copy with the new jar, launch script from the instance audit, scene world with data pack, screenshot tool; no game start | Sonnet | long | - | Folder `client-run\` complete; launch command printed; nothing in the real pack changed | done |
 | T13c | Client run: start the copy, collect log evidence and screenshots | Opus | long | T13a (lock), T13b | Game reaches the world with 0 Lootr errors; screenshot list; rest on the manual checklist | open |
-| T18 | Fixes from T13a and T13c, if any | by finding | - | T13a, T13c | Each finding fixed with test or listed | in progress (Sonnet, long) |
+| T18 | Fixes from T13a and T13c, if any | by finding | - | T13a, T13c | Each finding fixed with test or listed | done (Sonnet) |
 | T19 | Documentation pass 2: measured figures with method in CHANGELOG, final jar check | Sonnet | short | T13a, T13c, T18 | Figures equal the run results | open |
 | T15 | Final acceptance, clean-up, `report.md`, shared log line, push | lead | - | all | Report delivered | open |
 
-Model usage tally, this session (long = 2, short = 1): assigned so far Opus 2 (T13a), Sonnet 5 (T17, T13b, T18); planned total Opus 4, Sonnet 6.
+Model usage tally, this session (long = 2, short = 1): assigned so far Opus 4 (T13a, T20), Sonnet 5 (T17, T13b, T18); planned Opus 6 with T13c, Sonnet 6 plus T21 by proposal.
+| T20 | Performance audit (read-only in the repository): profile the roll path on the server copy with spark and with config variants, review tick, chunk-load, sync and client paths; ranked list of concrete changes with expected gain and risk | Opus | long | T13a | Each proposal has a measurement or a code-path argument, an exact change and a way to prove it | in progress |
+| T21 | Implement the accepted optimisations, with before and after figures | by proposal | - | T18, T20 | Behaviour unchanged (all tests green), gain measured on the server copy | open |

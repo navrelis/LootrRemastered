@@ -178,7 +178,7 @@ public final class VerifyReport {
     if (!result.itemBans().active()) {
       out.append("Not checked: no item ban source is active.\n");
     } else {
-      out.append("Item and tag entries of loaded loot tables that name a banned item. Banned items are removed from loot rolls.\n");
+      out.append("Item and tag entries of loaded loot tables that name a banned item, and tables that reach one through the tables they refer to (nested table entries). Banned items are removed from loot rolls.\n");
       groups(out, result, result.bannedItems(), BannedItems::origin, VerifyReport::line);
     }
 
@@ -422,7 +422,10 @@ public final class VerifyReport {
     for (BannedTag tag : finding.tags()) {
       parts.add("tag " + code("#" + tag.tag()) + " (" + tag.banned().size() + " of " + tag.size() + " banned: " + codes(tag.banned()) + ")");
     }
-    return code(finding.table()) + ": " + String.join("; ", parts);
+    if (parts.isEmpty()) {
+      parts.add("banned items of nested tables");
+    }
+    return code(finding.table()) + ": " + String.join("; ", parts) + (finding.via().isEmpty() ? "" : " (through " + codes(finding.via()) + ")");
   }
 
   private static String line(CannotProduce finding) {
@@ -594,6 +597,7 @@ public final class VerifyReport {
         entry.addProperty("size", tag.size());
         return entry;
       }));
+      json.add("via", strings(finding.via()));
       return json;
     }));
     findings.add(VerifyResult.CANNOT_PRODUCE, array(result.cannotProduce(), finding -> {

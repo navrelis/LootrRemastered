@@ -163,7 +163,13 @@ public record VerifyResult(
   public record MissingReference(String table, String source, String kind, String origin, int count, List<String> examples, List<String> holders, boolean fileExists) {
   }
 
-  public record BannedItems(String table, String origin, List<String> items, List<BannedTag> tags) {
+  /**
+   * @param items the banned items the table names itself.
+   * @param tags  the item tags it names that have banned members.
+   * @param via   the loot tables it refers to (nested table entries) that lead to a banned item, directly or through
+   *              other nested tables; empty if the table does not reach one that way.
+   */
+  public record BannedItems(String table, String origin, List<String> items, List<BannedTag> tags, List<String> via) {
   }
 
   /**

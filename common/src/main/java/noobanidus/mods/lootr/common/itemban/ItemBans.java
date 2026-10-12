@@ -232,7 +232,11 @@ public final class ItemBans {
           obliterator = ObliteratorBanSource.create();
         }
         if (obliterator.isPresent() && register(obliterator.get())) {
-          LootrAPI.LOG.info("Item Obliterator found: items it disables are removed from Lootr containers and loot rolls.");
+          if (settings.filterAllLoot()) {
+            LootrAPI.LOG.info("Item Obliterator found: items it disables are removed from Lootr containers and loot rolls.");
+          } else {
+            LootrAPI.LOG.info("Item Obliterator found: items it disables are removed from Lootr containers; other loot rolls are not filtered (filter_all_loot is off).");
+          }
         }
       } else if (obliterator != null && obliterator.isPresent()) {
         unregister(obliterator.get());

@@ -54,3 +54,4 @@ Item Obliterator 3.1.1, Advanced Loot Info 2.3.0, EMI Loot 0.7.9, dragonloot 1.1
 - Pack swap: the owner does it. The jar is proven on copies only; the real pack is not touched. Report gives the exact list and one command.
 - Graphify: skipped (earlier rule stays; no graph exists).
 - Git: push to `origin/claude/intelligent-gauss-f0435e`; `mdg-1.21.1` untouched; the four leftover local branches and two worktrees are deleted in the final clean-up.
+- 2026-10-12, owner during the session: "if you can optimise this mod somehow because it seems very unoptimised then also do that". Taken as R9: find the mod's real costs by measurement (loot roll, tick, chunk load, client) and remove what can be removed without changing behaviour; state before and after figures.

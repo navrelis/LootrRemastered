@@ -7,10 +7,10 @@ against the form you see, they change from time to time. Items marked (unverifie
 
 | Done | Item | Where |
 |---|---|---|
-| [ ] | The licence audit has passed: every row of the table in `docs/licence-audit.md` is "pass" or has an owner decision. Open points at the time of writing: history option (5), `.knowledge/` in the public tree (3), and the check of the built jar (6): both licence files at the jar root. The 32 block state and model files are rewritten; 6 of them are necessarily identical to upstream (1b), which `check_jar.py` reports as `EXPECTED`. | `docs/licence-audit.md` |
-| [ ] | The built jar passes `python docs\tools\check_jar.py fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar b62e382a` (no FAIL, no unexplained CHECK). | |
+| [ ] | The licence audit has passed: every row of the table in `docs/licence-audit.md` is "pass" or has an owner decision. Open points at the time of writing: history option (5) and `.knowledge/` in the public tree (3). The check of the built jar (6) is done: `LICENSE` and `LICENSE_ASSETS.txt` are at the jar root of the checked build. The 32 block state and model files are rewritten; 6 of them are necessarily identical to upstream (1b), which `check_jar.py` reports as `EXPECTED`. | `docs/licence-audit.md` |
+| [ ] | The built jar passes `python docs\tools\check_jar.py fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar b62e382a` (no FAIL, no unexplained CHECK). The final jar was checked this way with the result "no FAIL"; run the check again on the exact file that gets uploaded. | |
 | [ ] | The repository is public (the owner's step), because the description and `fabric.mod.json` link to `https://github.com/navrelis/LootrRemastered`. If it stays private, remove the last line of the description and the three contact links from `fabric/src/main/resources/fabric.mod.json` first. | |
-| [ ] | The in-pack results are in: this material states no performance figure and no in-pack test result, on purpose. Add them to the description or the changelog only when they exist and say what they were measured on. | |
+| [ ] | The in-pack results are in: the figures are in `CHANGELOG.md` (section "Measured on a server") and in the short "Cost" paragraph at the end of "Why one jar" in `docs/curseforge/description.md`. They describe one pack (about 314 server-side jars) on one shared PC and are a rough guide, not a promise; keep that wording if the text is edited. | |
 | [ ] | Do not publish with the project ids of the original Lootr (`361276`, `615106` on CurseForge, `EltpO5cN` on Modrinth). They were removed from the build; nothing in this repository can publish to them. | |
 
 ## The file
@@ -18,6 +18,7 @@ against the form you see, they change from time to time. Items marked (unverifie
 | Field | Value |
 |---|---|
 | File to upload | `fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar` (not the `-sources` jar and not a `-dev` jar if one is in the folder) |
+| SHA-256 of the checked build | `61664C8299A6B86EED4A5B3198B93E5E87B2CA58403B4D9A4A8F4DDA37DE6FA0` (re-check after any rebuild) |
 | Display name | `Lootr Remastered 2.0.0` |
 | Version | 2.0.0 (the file name carries 1.21.1-2.0.0) |
 | Release type | owner decides: Release, or Beta for the first public build |
@@ -56,7 +57,7 @@ as this mod. The CurseForge relations above are still to be set by hand.
 | Source link | `https://github.com/navrelis/LootrRemastered` |
 | Issues link | `https://github.com/navrelis/LootrRemastered/issues` |
 | Wiki, donation links | none |
-| Screenshots | none exist yet. `art/preview/` holds software renderings, not game screenshots. Take screenshots in game after the client check (chest sealed and spent, barrel, shulker box, pot, toast, trophy). |
+| Screenshots | game screenshots of the final jar exist outside the repository: nine 1280 x 720 captures of a test scene in the pack (chests, trapped chest, shulker box, decorated pot, barrels in six facings, item frames, chest minecart, trophies). They are test captures: they show the HUD of other mods in the pack (a minimap, Jade tooltips) and a debug action bar label, so for the project page the owner may prefer to take clean ones. `art/preview/` holds software renderings, not game screenshots. |
 | Third-party distribution (for example in modpacks) | owner decides; the MIT licence allows it |
 
 ## What the owner has to decide or do by hand
@@ -67,7 +68,7 @@ as this mod. The CurseForge relations above are still to be set by hand.
 3. Whether `.knowledge/` stays in the public repository.
 4. Whether to contact the author of Lootr before release (courtesy; the MIT licence does not require it). The translations of Lootr's community are not
    included; asking for permission to reuse them is the only way to bring them back.
-5. After the build: run `python docs\tools\check_jar.py <jar> b62e382a` and confirm that `LICENSE` and `LICENSE_ASSETS.txt` are at the jar root (the build file was changed to put them there; this is not yet confirmed), then
+5. After the build: run `python docs\tools\check_jar.py <jar> b62e382a` and confirm that `LICENSE` and `LICENSE_ASSETS.txt` are at the jar root (the build file puts them there; the checked build had both), then
    create the CurseForge project, fill in the form from this list, upload the file, and wait for the project and file approval.
 6. After the project page exists: add its address to `fabric.mod.json` (`contact.homepage`) in the next build, and to the README and `CREDITS.md` if wanted.
 7. Release type and the final wording of the page.

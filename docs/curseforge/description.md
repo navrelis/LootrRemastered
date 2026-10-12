@@ -18,7 +18,7 @@ Lootr Remastered is a fork of Lootr. It does what Lootr does, does what the mod 
 
 Lootr, Loot Integrations and its add-ons are separate jars. This mod replaces them with one: fewer mods to update, one config file (`config/lootr.json`), one place where loot is extended, and the loot table check can see all of it. Extra stacks use one or two source rolls per extended roll, are limited by the free slots of the container, and use the random of the roll itself, so a container with a fixed seed stays reproducible.
 
-Cost, measured on a server copy of a pack with about 314 server-side jars: rolling an extended chest table took about 20 to 40 microseconds with the mod, of which integrated loot adds 12 to 16, and a roll happens once per player per container. Outside loot rolls the mod's code did not show up in a profile of an idle server, of 4,096 loaded Lootr barrels or of chunk generation; the figures are from one shared PC and one pack, so treat them as a rough guide.
+Cost, measured on a server copy of a pack with about 314 server-side jars: rolling an extended chest table took about 20 to 40 microseconds with the mod, of which integrated loot adds 12 to 16, and a roll happens once per player per container. Outside loot rolls a CPU profile found no samples in the mod's code on an idle server or with 4,096 loaded Lootr barrels, and under 1 percent during chunk generation; the figures are from one shared PC and one pack, so treat them as a rough guide.
 
 ## Requirements
 

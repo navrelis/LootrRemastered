@@ -6,24 +6,32 @@ Relative to Lootr 1.11.38 (the base is 1.11.38.128, commit `b62e382a`). The mod 
 data format are unchanged, so worlds and mods that link against Lootr keep working. The jar is
 `lootr-remastered-fabric-1.21.1-2.0.0.jar`.
 
-Figures in this file come from the project's own test runs (Fabric game tests on a headless server with vanilla content
+Figures in the lists below come from the project's own test runs (Fabric game tests on a headless server with vanilla content
 and small scenarios), not from a modpack. They show how much unnecessary work was removed in that scenario, not how much
-faster your server runs.
+faster your server runs. Figures from a server copy of a large pack are in the section "Measured on a server" at the end.
 
 ### Added
 
 - Integrated loot, built in: data pack rules add one to a few stacks from pools of vanilla chest loot tables to the roll
   results of chest-type loot tables, including those of structure mods. 6 pools and 51 rule files ship in the jar; each rule file is
   active only when the mod it targets is installed. Replaces Loot Integrations and its add-ons. Settings in the new
-  `integrated_loot` section of `config/lootr.json`; format and example in the README.
+  `integrated_loot` section of `config/lootr.json`; format and example in the README. The vanilla table
+  `minecraft:chests/trial_chambers/intersection_barrel` is not a source of the pool `overworld_common`: its compass entry
+  with `set_damage` logged "Couldn't set damage of loot item" warnings when the table was rolled as a source.
 - The settings of an existing `config/lootintegrations.json` (`moddedItemWeight`, `skipExistingItems`, `skipMapItems`,
   `debugOutput`) are taken over once; the file is not changed.
 - Item bans: items disabled in Item Obliterator (if installed) and items on the new `extra_banned_items` list are removed
   from what a loot table itself rolls and from stored per-player inventories when these are opened. New `item_bans` section.
   The filter wraps the consumer on its way into the item functions and leaves the arguments of the roll alone, so it works
-  beside mods that capture the roll output of `LootTable.getRandomItemsRaw` (tested with CraftTweaker 21.0.38).
+  beside mods that capture the roll output of `LootTable.getRandomItemsRaw` (tested with CraftTweaker 21.0.38). In a
+  second server run (a copy of a pack with about 314 server-side jars, CraftTweaker among them, default config) loot rolled
+  normally, and an item that Item Obliterator disables appeared in 0 of 24,000 rolls of `minecraft:chests/simple_dungeon`
+  with the filter on, against 11,970 of 24,000 with `filter_all_loot` off (counted in the inventory of a chest minecart).
+  The start-up line about Item Obliterator says whether other loot rolls are filtered (`filter_all_loot`) or only Lootr containers.
 - `/lootr verify [rolls <n>]`: checks all loot tables, structure templates and worldgen files of the loaded packs and writes
   a Markdown and a JSON report to `logs/lootr/`. Start-up mode with `-Dlootr.verify=true|exit` and `-Dlootr.verify.rolls=<n>`.
+  Its `banned_item` check also follows nested loot table entries: a table that reaches a banned item through the tables it
+  refers to is listed, with the tables it goes through (`via` in the JSON report).
 - `/lootr integrated <loot_table>` and `/lootr integrated stats` to see what integrated loot does.
 - The loot table verification states at the top of its report (and in its summary) when nearly all sampled tables roll empty
   (at least 90 percent of at least 20 sampled tables), because that points to a conflict between mods that change loot rolls
@@ -75,6 +83,17 @@ Saved data and performance of the core (found by reading the code; each was conf
 - The routine that walks Lootr's data files (used by admin commands) took timer files for containers and dropped timers that were not yet saved.
 - `/lootr cull` could remove saved data of a container that still had recorded openers.
 
+Found in a performance review of the finished mod (by reading the code):
+
+- The server's handler for the client's container update request (`request_update`) looked up the block entity at any
+  position the client named. For a chunk that is not loaded this can load or generate the chunk on the server thread. The handler
+  now ignores positions outside the requesting player's dimension, outside the view distance, or in chunks that are not loaded,
+  so a modified client can no longer make the server load or generate chunks through it. The stall itself was not reproduced
+  in a test; the mod's own client only asks about blocks it has loaded, so normal play is not affected.
+- The hopper hook looked up a block entity for every container lookup, also for blocks that have none (the air above a hopper).
+  It no longer does; vanilla asks only blocks that have one. Saves one lookup per hopper container lookup (estimated
+  50 to 100 nanoseconds). No effect was measurable in the test pack, where Lithium keeps idle hoppers asleep; not measured without Lithium.
+
 Behaviour that players and admins notice:
 
 - Refresh while a player has the container open (Lootr issue #912): the screen now closes with a message instead of showing stale contents.
@@ -100,3 +119,52 @@ Behaviour that players and admins notice:
 - The built-in "old textures" resource pack, its 14 textures, 4 models and atlas entries, and the option `new_textures`.
 - The options `save_mode` (it had no effect) and `doesServerNeedLessFiles` (dead code). Unknown keys in an existing `config/lootr.json` are ignored.
 - The original artwork, its source files and its logo (replaced, see above).
+
+### Measured on a server
+
+Server runs and a profile of the finished jar, all on a dedicated server (Java 21) with a copy of one large pack (about 314
+server-side jars; among them C2ME, Lithium, VMP, ServerCore and Item Obliterator, which disabled 2 items). The PC was shared
+with other programs. These figures describe that pack and that machine; they are not a promise for yours.
+
+Cost of one loot roll, in microseconds, for the chest tables that integrated loot extends. A roll is
+`loot replace block ... loot <table>`, repeated 20,000 times in one function and timed from the server log, so it includes about
+2 microseconds of command dispatch. Each configuration ran in two separate server starts (the mod has no runtime config reload),
+10 timed passes each; each value is the mean of the two run medians, rounded.
+
+| Table | Default | Item ban filter off | Integrated loot off | Both off |
+|---|---|---|---|---|
+| `minecraft:chests/simple_dungeon` | 33 | 34 | 17 | 18 |
+| `dungeons_arise:chests/illager_fort/illager_fort_treasure` | 37 | 36 | 25 | 22 |
+| `nova_structures:chests/illager_hideout_tresure` | 20 | 19 | 5 | 6 |
+| `minecraft:chests/ruined_portal` | 40 | 39 | 25 | 24 |
+
+- Integrated loot adds 12 to 16 microseconds to a roll of an extended table. In the CPU profile about 10 to 14 of those are the
+  one extra source table that the feature rolls. A roll happens once per player per container, not per tick. For a table without
+  a rule and for entity tables the difference was within the noise.
+- The item ban filter could not be resolved by this timing (the differences are below the spread and change sign). From the
+  profile it costs about 0.1 microseconds per checked stack (an estimate, plus or minus half), about 1.4 to 4.9 microseconds
+  per chest roll, and nearly all of that is spent inside Item Obliterator's own check, not in Lootr.
+- "Both off" is not "mod absent": the hooks stay installed (one volatile read each) and the jar was not removed for this
+  series. In an earlier run of the same pack copy with none of the loot mods installed, the same four tables took 3.6 to 14
+  microseconds per roll and 19 to 84 with this mod (median of five batches of 5,000 rolls, one run each).
+- The old set (Lootr and Loot Integrations with add-ons, 11 jars) measured 0.30 to 0.45 seconds per roll of an extended table on
+  the server thread in the first run of the same pack copy; the same rolls with this mod took 20 to 60 microseconds in that run.
+  That run used batches of 20 rolls for the old jars and is not a like-for-like comparison.
+
+Outside loot rolls the mod's code was not visible in the profile (sampled server thread, default config; the profiler delivered
+about one sample per 20 milliseconds, so "not visible" means below about 1 percent, not zero):
+
+- idle, 40 seconds: 0 of 237 samples in Lootr code;
+- 4,096 Lootr barrels loaded, 60 seconds: 1 of 405 samples in block entity ticking at all, 0 in Lootr code;
+- 432 newly generated chunks: 5 of 691 samples in Lootr code;
+- converting 4,096 vanilla barrels that have a loot table: 2 of 113 samples, about 40 milliseconds in all (estimated from the 2 samples);
+- start-up including loading the integrated loot data: about 12 of 6,125 samples, about 0.25 seconds (estimated);
+- 4,096 hoppers, 40 seconds: no hopper code among the samples.
+
+`/lootr verify rolls 3` on the same pack took 14.2 seconds (1,203 tables, 3,609 rolls); the server tick during the run averaged
+1.3 to 2.6 milliseconds, the 99th percentile was at most 15.0 milliseconds.
+
+Noise: the PC also ran Gradle daemons, and a Minecraft client was started during two of the runs. Batches within one run differed
+by up to a factor of 2.7, and the medians of two starts of one configuration by up to 1.5; differences between configurations
+below about 5 microseconds are not findings. Not measured: the client side (renderers and models were only read), `/reload`, a
+server without Lithium.

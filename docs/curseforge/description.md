@@ -12,11 +12,13 @@ Lootr Remastered is a fork of Lootr. It does what Lootr does, does what the mod 
 
 **Banned items stay out of loot.** If you use Item Obliterator, the items it disables are removed from what a loot table itself rolls (chests, minecart chests, pots, archaeology, mob and block drops, integrated loot) and from stored per-player inventories when these are opened. Stacks that another mod adds after the table's own roll has returned (for example CraftTweaker or Porting Lib loot modifiers, the Aether's) do not pass through this filter; Lootr containers and stored per-player inventories are scrubbed separately in every case. You can also ban items and item tags in this mod's config.
 
-**A loot table check.** `/lootr verify` reads the loot tables, structure templates and worldgen files of your whole pack and writes a report to `logs/lootr/` (Markdown and JSON, grouped by the mod responsible). It lists loot tables that did not load, references to loot tables that do not exist, entries for banned items, tables that can never produce anything, and structure chests that get no integrated loot. With `/lootr verify rolls 5` it also rolls every structure and chest table five times to find tables that throw errors or never produce an item.
+**A loot table check.** `/lootr verify` reads the loot tables, structure templates and worldgen files of your whole pack and writes a report to `logs/lootr/` (Markdown and JSON, grouped by the mod responsible). It lists loot tables that did not load, references to loot tables that do not exist, entries for banned items (also through nested tables), tables that can never produce anything, and structure chests that get no integrated loot. With `/lootr verify rolls 5` it also rolls every structure and chest table five times to find tables that throw errors or never produce an item.
 
 ## Why one jar
 
 Lootr, Loot Integrations and its add-ons are separate jars. This mod replaces them with one: fewer mods to update, one config file (`config/lootr.json`), one place where loot is extended, and the loot table check can see all of it. Extra stacks use one or two source rolls per extended roll, are limited by the free slots of the container, and use the random of the roll itself, so a container with a fixed seed stays reproducible.
+
+Cost, measured on a server copy of a pack with about 314 server-side jars: rolling an extended chest table took about 20 to 40 microseconds with the mod, of which integrated loot adds 12 to 16, and a roll happens once per player per container. Outside loot rolls the mod's code did not show up in a profile of an idle server, of 4,096 loaded Lootr barrels or of chunk generation; the figures are from one shared PC and one pack, so treat them as a rough guide.
 
 ## Requirements
 

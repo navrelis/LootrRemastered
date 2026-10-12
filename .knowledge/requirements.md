@@ -48,3 +48,9 @@ Item Obliterator 3.1.1, Advanced Loot Info 2.3.0, EMI Loot 0.7.9, dragonloot 1.1
 
 ## Open owner decisions
 - Lootr assets: own original textures and models (default, planned) or the Lootr author's written permission.
+
+## Owner answers, third lead session (2026-10-12)
+- Game runs: both allowed now (headless server copy and a client window on a copy of the pack, sound muted).
+- Pack swap: the owner does it. The jar is proven on copies only; the real pack is not touched. Report gives the exact list and one command.
+- Graphify: skipped (earlier rule stays; no graph exists).
+- Git: push to `origin/claude/intelligent-gauss-f0435e`; `mdg-1.21.1` untouched; the four leftover local branches and two worktrees are deleted in the final clean-up.

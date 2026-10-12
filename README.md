@@ -2,7 +2,7 @@
 
 Lootr Remastered is a Fabric mod for Minecraft 1.21.1. It gives every player their own copy of the loot in a
 loot container, adds a few extra stacks from other loot tables to the containers of vanilla and modded structures,
-keeps banned items out of all loot, and can check a whole pack's loot tables with one command.
+keeps banned items out of loot rolls and Lootr containers, and can check a whole pack's loot tables with one command.
 
 It is a fork of [Lootr](https://github.com/LootrMinecraft/Lootr) (code under the MIT licence) and takes over the job of
 the mod Loot Integrations with its add-ons, in one jar. Mod id: `lootr`. Version 2.0.0. Fabric only.
@@ -61,7 +61,7 @@ Rules in data packs select loot tables, usually chests of structures; when such 
 
 ### Item bans
 
-- If Item Obliterator is installed, every item it disables is kept out of loot: loot rolls of all loot tables (chests, minecart chests, pots, archaeology, mob drops, integrated loot), and per-player Lootr inventories. The mod calls only the public check method of Item Obliterator through a method handle.
+- If Item Obliterator is installed, every item it disables is removed from what a loot table itself rolls (chests, minecart chests, pots, archaeology, mob and block drops, integrated loot) and from per-player Lootr inventories. Stacks that another mod adds after the table's own roll has returned (for example loot modifiers of CraftTweaker or Porting Lib, such as the Aether's) do not pass through this filter; Lootr containers and stored per-player inventories are scrubbed separately in every case. If the hook on the loot roll cannot be applied because another mod changed the method, Lootr logs one warning at start-up and switches the all-loot filter off. The mod calls only the public check method of Item Obliterator through a method handle.
 - Stacks that were generated before an item was banned are removed from stored per-player inventories when they are opened. This deletes the stack permanently (it is the same as Item Obliterator's own behaviour). Switch it off with `scrub_saved_inventories`.
 - The list `extra_banned_items` bans more items without Item Obliterator: item ids (`namespace:item`) and item tags (`#namespace:tag`).
 
@@ -216,6 +216,7 @@ The sources are in `common/` (code shared with the former NeoForge build; this r
 ## Known limitations
 
 - Loot viewers such as EMI Loot and Advanced Loot Info read loot tables statically and do not show the extra stacks of integrated loot. They keep working and show the tables as they are in the data.
+- The all-loot ban filter covers what a loot table itself rolls. Stacks that another mod adds after that roll (loot modifiers of CraftTweaker, Porting Lib and similar) are not filtered; Lootr containers and stored per-player inventories are scrubbed in every case.
 - Only the top-level stack is checked against bans; the contents of bundles and shulker box items are not. A banned stack that a player put into their own Lootr inventory is deleted as well. An item frame whose reference item is banned still shows it.
 - `neoforge:conditions` in loot tables are judged by the verification against Fabric mod ids, so mods that run through a compatibility layer count as absent there. The verification's list of one-slot containers is fixed. Bans that a loot function sets while rolling are not seen by the static checks (D, E). Ban sources are called from the verification's scan threads.
 - With loot seed 0, vanilla uses the level's random for the roll, so extra stacks draw from it in that case; the slot layout of an extended container differs from vanilla for the same seed.

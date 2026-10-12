@@ -10,7 +10,7 @@ Lootr Remastered is a fork of Lootr. It does what Lootr does, does what the mod 
 
 **Structure chests get a few extra stacks.** Rules in data packs select loot tables (mostly chests of structures). When such a table is rolled, one or two source tables are rolled too and a few of their stacks are added to the result. The original loot is never removed. 6 pools and 51 rule files are built in for vanilla and for many structure mods, and each rule file is active only when the mod it targets is installed. You can add your own pools and rules in any data pack.
 
-**Banned items stay out of loot.** If you use Item Obliterator, the items it disables never come out of a loot roll (chests, minecart chests, pots, archaeology, mob drops, integrated loot) and are removed from stored per-player inventories when these are opened. You can also ban items and item tags in this mod's config.
+**Banned items stay out of loot.** If you use Item Obliterator, the items it disables are removed from what a loot table itself rolls (chests, minecart chests, pots, archaeology, mob and block drops, integrated loot) and from stored per-player inventories when these are opened. Stacks that another mod adds after the table's own roll has returned (for example CraftTweaker or Porting Lib loot modifiers, the Aether's) do not pass through this filter; Lootr containers and stored per-player inventories are scrubbed separately in every case. You can also ban items and item tags in this mod's config.
 
 **A loot table check.** `/lootr verify` reads the loot tables, structure templates and worldgen files of your whole pack and writes a report to `logs/lootr/` (Markdown and JSON, grouped by the mod responsible). It lists loot tables that did not load, references to loot tables that do not exist, entries for banned items, tables that can never produce anything, and structure chests that get no integrated loot. With `/lootr verify rolls 5` it also rolls every structure and chest table five times to find tables that throw errors or never produce an item.
 
@@ -39,6 +39,7 @@ Install on the server and on every client. NeoForge is not supported.
 
 - **Loot viewers** such as EMI Loot and Advanced Loot Info read loot tables statically. They keep working, but they show the tables without the extra stacks of integrated loot.
 - Mods that change dimensions or progression (for example Aether, Twilight Forest, Cataclysm, Eternal Starlight, Deeper and Darker) are excluded from integrated loot on purpose.
+- The all-loot ban filter covers what a loot table itself rolls, not stacks that other mods add afterwards. If it cannot be applied because another mod changed the loot roll, Lootr logs one warning at start-up and switches it off; Lootr containers are still filtered.
 - Bans check the top-level stack only; the contents of bundles and shulker box items are not inspected.
 - Config changes on a dedicated server need a restart.
 - The full list of limits is in the README on the source page.

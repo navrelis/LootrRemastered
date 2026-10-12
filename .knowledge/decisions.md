@@ -40,3 +40,10 @@
 - Rule files get a second optional gate `required_namespaces` (active only if a loaded loot table has that namespace): NeoForge mods loaded through Sporran have no Fabric mod id, and the gate also suits plain data packs.
 - Block state and model JSON files inherited from upstream's assets folder are rewritten from a functional specification by an implementer who never saw them: they carry no art, but the original notice ("All Lootr Assets are ARR") does not say what it covers, and a public release should not depend on our reading of it. Item models that used a copied display block now inherit from vanilla's chest item model.
 - `fabric.mod.json` declares `breaks` for `lootintegrations`: running both would extend loot twice; the add-ons depend on that id, so one entry covers them.
+
+## Third lead session (2026-10-12)
+- The real pack is not changed by this session: the owner swaps the jars himself after the report (owner answer).
+- Graphify skipped on the owner's word; `.knowledge/` stays the only map.
+- Precision override, T13a to Opus: the run's numbers carry the owner's yes or no on removing 11 jars, and a wrong reading of a ban count or an empty roll would go unnoticed.
+- Precision override, T13c to Opus: an unattended client start of a 413-mod pack has no spec for what goes wrong; preparation is split off to Sonnet (T13b).
+- Client scene is driven by a data pack (functions run with permission level 2), so `level.dat` is not edited.

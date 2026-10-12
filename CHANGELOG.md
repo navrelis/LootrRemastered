@@ -18,11 +18,18 @@ faster your server runs.
   `integrated_loot` section of `config/lootr.json`; format and example in the README.
 - The settings of an existing `config/lootintegrations.json` (`moddedItemWeight`, `skipExistingItems`, `skipMapItems`,
   `debugOutput`) are taken over once; the file is not changed.
-- Item bans: items disabled in Item Obliterator (if installed) and items on the new `extra_banned_items` list never come
-  out of any loot roll and are removed from stored per-player inventories when these are opened. New `item_bans` section.
+- Item bans: items disabled in Item Obliterator (if installed) and items on the new `extra_banned_items` list are removed
+  from what a loot table itself rolls and from stored per-player inventories when these are opened. New `item_bans` section.
+  The filter wraps the consumer on its way into the item functions and leaves the arguments of the roll alone, so it works
+  beside mods that capture the roll output of `LootTable.getRandomItemsRaw` (tested with CraftTweaker 21.0.38).
 - `/lootr verify [rolls <n>]`: checks all loot tables, structure templates and worldgen files of the loaded packs and writes
   a Markdown and a JSON report to `logs/lootr/`. Start-up mode with `-Dlootr.verify=true|exit` and `-Dlootr.verify.rolls=<n>`.
 - `/lootr integrated <loot_table>` and `/lootr integrated stats` to see what integrated loot does.
+- The loot table verification states at the top of its report (and in its summary) when nearly all sampled tables roll empty
+  (at least 90 percent of at least 20 sampled tables), because that points to a conflict between mods that change loot rolls
+  and not to bad tables.
+- If the hook on the loot roll cannot be applied (another mod changed the method), Lootr logs one warning at start-up and
+  switches the all-loot filter off instead of failing to start. Lootr containers and stored inventories are still scrubbed.
 - Item tag `lootr:integrated_loot/excluded` (command blocks, barriers, spawners and similar): never added by integrated loot.
 - A German language file, written new.
 - Message "This container's loot has refreshed." for a player whose container screen is closed by a refresh.
@@ -42,6 +49,9 @@ faster your server runs.
 - Licence files: `LICENSE_ASSETS.txt` now describes this repository (see there and `docs/licence-audit.md`). The build puts `LICENSE` and `LICENSE_ASSETS.txt` at the root of the jar.
 - The block state and model JSON files (32) were written anew from a functional specification; the item models of the chests, shulker box, trapped chest, inventory chest and
   decorated pot now inherit from vanilla's chest item model instead of carrying their own display transforms. Six one-line files are still identical to Lootr's, because they cannot differ.
+- In the verification, loot tables that roll empty in every sample roll and that no container uses are listed as notes
+  instead of warnings (`always_empty_in_rolls`). Dispenser loot tables (`minecraft:dispensers/**` and
+  `repurposed_structures:dispensers/**`) are excluded from integrated loot explicitly: they are ammunition, not treasure.
 - `fabric.mod.json` declares that this mod breaks with `lootintegrations` (Loot Integrations and its add-ons): running both would extend loot twice.
 
 ### Fixed

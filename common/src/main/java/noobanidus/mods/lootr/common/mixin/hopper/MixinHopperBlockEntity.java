@@ -22,7 +22,7 @@ public class MixinHopperBlockEntity {
       return null;
     }
 
-    if (LootrAPI.resolveBlockEntity(level.getBlockEntity(pos)) instanceof ILootrBlockEntity) {
+    if (state.hasBlockEntity() && LootrAPI.resolveBlockEntity(level.getBlockEntity(pos)) instanceof ILootrBlockEntity) {
       return null;
     }
 

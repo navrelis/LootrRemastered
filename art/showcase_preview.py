@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Lootr Remastered -- offline preview of the CurseForge description, and a checker for its images.
 
-    python art/showcase_preview.py            write docs/curseforge/preview.html from description.md
-    python art/showcase_preview.py --check    write nothing; verify markers, images and that preview.html is current
+    python art/showcase_preview.py            write docs/curseforge/preview.html and description_published.md from description.md
+    python art/showcase_preview.py --check    write nothing; verify markers, images, gallery addresses and that both outputs are current
 
 The description carries one paste marker per image, on a line of its own:
 
@@ -22,7 +22,19 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = os.path.join(ROOT, "docs", "curseforge")
 DESCRIPTION = os.path.join(DOCS, "description.md")
 PREVIEW = os.path.join(DOCS, "preview.html")
+PUBLISHED = os.path.join(DOCS, "description_published.md")
 IMG = os.path.join(DOCS, "img")
+
+# Addresses of the images in the gallery of CurseForge project 1742179; update the numbers if an image is uploaded again.
+GALLERY_URL = "https://media.forgecdn.net/attachments/2049/%d/%s-png.png"
+GALLERY_IDS = {
+    "assets_grid": 451, "banner": 452, "block_barrel": 453, "block_chest": 454, "block_item_frame": 455,
+    "block_minecart": 456, "block_pot": 457, "block_shulker": 458, "block_suspicious_gravel": 459,
+    "block_suspicious_sand": 460, "block_trapped_chest": 461, "block_trophy": 462, "card_extra_loot": 463,
+    "card_install": 464, "card_item_bans": 465, "card_one_jar": 466, "card_per_player": 467, "card_verify": 468,
+    "hero_dungeon": 469, "sealed_vs_spent": 470, "texture_sheet": 471, "toasts": 472,
+}
+GALLERY = {stem + ".png": GALLERY_URL % (n, stem) for stem, n in GALLERY_IDS.items()}
 
 MAX_WIDTH, MAX_BYTES = 1000, 400000
 MARKER = re.compile(r"^>>> PASTE IMAGE: ([A-Za-z0-9_]+\.png) \| ([^|<>]+?) <<<$")
@@ -128,6 +140,21 @@ def render(lines):
             "<div class=\"note\">%s</div>\n<main>\n%s\n</main>\n</body>\n</html>\n" % (CSS, NOTE, "\n".join(body)))
 
 
+def published(lines):
+    """The description text with every marker line replaced by a Markdown image link to the gallery."""
+    out = []
+    for ln in lines:
+        m = MARKER.match(ln)
+        if not m:
+            out.append(ln)
+            continue
+        name, alt = m.group(1), m.group(2).strip()
+        if name not in GALLERY:
+            sys.exit("no gallery address for %s; add it to GALLERY in art/showcase_preview.py" % name)
+        out.append("![%s](%s)" % (alt, GALLERY[name]))
+    return "\n".join(out)
+
+
 # ---------------------------------------------------------------------------
 # Checks
 # ---------------------------------------------------------------------------
@@ -193,6 +220,20 @@ def check():
     results.append(("e. preview.html is what the description produces now",
                     [] if have == want else ["preview.html is missing" if have is None else "preview.html is stale; run python art/showcase_preview.py"]))
 
+    # f. every marker has a gallery address and every gallery address is used
+    bad = ["line %d: %s has no entry in GALLERY" % (n, f) for n, f in named if f not in GALLERY]
+    bad += ["GALLERY has an entry for %s that no marker uses" % f for f in sorted(GALLERY) if f not in uses]
+    results.append(("f. every marker has a gallery address and every gallery address is used (%d addresses)" % len(GALLERY), bad))
+
+    # g. description_published.md is current
+    if all(f in GALLERY for _, f in named):
+        want = published(lines).encode("utf-8")
+        have = open(PUBLISHED, "rb").read() if os.path.isfile(PUBLISHED) else None
+        bad = [] if have == want else ["description_published.md is missing" if have is None else "description_published.md is stale; run python art/showcase_preview.py"]
+    else:
+        bad = ["description_published.md cannot be checked until every marker has a GALLERY entry"]
+    results.append(("g. description_published.md is what the description produces now", bad))
+
     problems = 0
     for label, bad in results:
         print("%s  %s" % ("ok  " if not bad else "FAIL", label))
@@ -209,10 +250,11 @@ def main():
         sys.exit(check())
     if args:
         sys.exit("usage: python art/showcase_preview.py [--check]")
-    data = render(read_description()).encode("utf-8")
-    with open(PREVIEW, "wb") as f:
-        f.write(data)
-    print("wrote %s (%d bytes)" % (os.path.relpath(PREVIEW, ROOT).replace(os.sep, "/"), len(data)))
+    lines = read_description()
+    for path, data in ((PREVIEW, render(lines).encode("utf-8")), (PUBLISHED, published(lines).encode("utf-8"))):
+        with open(path, "wb") as f:
+            f.write(data)
+        print("wrote %s (%d bytes)" % (os.path.relpath(path, ROOT).replace(os.sep, "/"), len(data)))
 
 
 if __name__ == "__main__":

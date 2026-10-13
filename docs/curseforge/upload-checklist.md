@@ -50,7 +50,7 @@ as this mod. The CurseForge relations above are still to be set by hand.
 | Name | Lootr Remastered (check that the name is allowed next to the original Lootr project) |
 | Slug | `lootr-remastered` (if free) |
 | Summary | `docs/curseforge/summary.txt` (232 characters; the limit is 250) |
-| Description | `docs/curseforge/description.md`. It is Markdown. If the editor does not render Markdown, paste it into the rich text editor in the HTML view after converting it, or format the headings and lists by hand. It contains 22 image markers (`>>> PASTE IMAGE: ... <<<`); see `docs/curseforge/README.md` for the upload steps and open `docs/curseforge/preview.html` to see the page with the images. |
+| Description | `docs/curseforge/description_published.md`. It is Markdown, generated from `description.md`; do not edit it by hand. It already contains the 22 images as links to the project's gallery, so there are no markers to replace. If the editor does not render Markdown, paste it into the rich text editor in the HTML view after converting it, or format the headings and lists by hand. See `docs/curseforge/README.md` and open `docs/curseforge/preview.html` to see the page with the images. |
 | Logo | `art\logo\logo_512.png` (512 x 512, nearest-neighbour upscale of the 32 x 32 `art\logo\logo_native.png`; check the size limits of the form) |
 | Licence | MIT License |
 | Categories | suggestion (unverified, pick from the current list): Adventure and RPG, Server Utility, Utility and QoL, Miscellaneous. The original Lootr's categories were not looked up. |

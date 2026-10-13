@@ -6,6 +6,7 @@
 | `summary.txt` | The short summary for the project form |
 | `upload-checklist.md` | The fields of the CurseForge forms and what to enter |
 | `preview.html` | The description with the images inline, for a browser; works offline when opened from this folder |
+| `description_published.md` | The description with every marker replaced by a link to the uploaded gallery image; paste this one |
 | `img/` | The 22 images the description refers to (PNG) |
 
 ## Images
@@ -44,6 +45,12 @@
 5. Check the page preview before saving. `preview.html` shows where each image goes.
 6. Upload the images as PNG and do not let the site rescale them. The logo is `art\logo\logo_512.png`.
 
+## Ready-to-paste text
+
+`description_published.md` is the text to paste into the CurseForge Markdown editor. Every image marker in it is already replaced by a Markdown image link to the image in the project's gallery, so the manual steps above are not needed for it.
+It is generated from `description.md` by `art\showcase_preview.py`. Never edit it by hand; change `description.md` and run the script again.
+The gallery addresses live in `GALLERY` in the script and must be updated there if an image is uploaded again.
+
 ## Rebuilding
 
 ```
@@ -53,7 +60,7 @@ python art\showcase_preview.py
 python art\showcase_preview.py --check
 ```
 
-The first two build the images into `img/`, the third writes `preview.html` from `description.md`, and `--check` verifies that every marker names an existing file, every image is used by exactly one marker, the marker lines have the exact form, every PNG is at most 1000 px wide and 400,000 bytes, and `preview.html` is up to date.
+The first two build the images into `img/`, the third writes `preview.html` and `description_published.md` from `description.md`, and `--check` verifies that every marker names an existing file, every image is used by exactly one marker, the marker lines have the exact form, every PNG is at most 1000 px wide and 400,000 bytes, every marker has a gallery address (and every address is used), and `preview.html` and `description_published.md` are up to date.
 
 The generators need a Minecraft 1.21.1 client jar. They find the one in the Gradle Loom cache (`%USERPROFILE%\.gradle\caches\fabric-loom\1.21.1\`) automatically; set the environment variable `LOOTR_MC_JAR` to use another jar. The output is byte-identical on every run.
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.0
+
+- Build restructured: one branch per Minecraft version, one standalone Gradle build per loader.
+
 ## 2.0.0 (Lootr Remastered, Fabric 1.21.1)
 
 Relative to Lootr 1.11.38 (the base is 1.11.38.128, commit `b62e382a`). The mod id `lootr`, the Java packages and the saved

@@ -24,7 +24,6 @@ build
 eclipse
 run
 /runs
-.gitattributes
 /deps
 /flatdir
 
@@ -44,3 +43,9 @@ datapacks/*/*.zip
 datapacks/*.zip
 # local status board, not published
 .knowledge/
+
+# Gradle: every loader folder (fabric/, neoforge/, forge/) is its own build; <loader>/release/ is tracked
+**/build/
+**/.gradle/
+**/run/
+**/run-*/

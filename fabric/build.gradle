@@ -1,8 +1,75 @@
 plugins {
-    id 'fabric-loom' version "1.14.7"
+    id 'fabric-loom' version '1.14.7'
+    id 'java-library'
+    id 'idea'
 }
 
+// The jar is lootr-remastered-fabric-<minecraft_version>-<mod_version>.jar; the version declared in fabric.mod.json
+// keeps the "<minecraft_version>-<mod_version>" format (declaredVersion below).
+version = mod_version
+group = mod_group
+
+base {
+    archivesName = "lootr-remastered-fabric-${minecraft_version}"
+}
+
+def declaredVersion = "${minecraft_version}-${mod_version}"
+
+java {
+    // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
+    toolchain.languageVersion = JavaLanguageVersion.of(java_version as int)
+    withSourcesJar()
+}
+
+// The loader-neutral code and assets in ../common are compiled and packaged into this jar (common has no build of its own).
+def commonDir = file('../common')
+
 repositories {
+    mavenLocal()
+    mavenCentral()
+    // maven.modrinth:jade
+    exclusiveContent {
+        forRepository {
+            maven {
+                url = "https://api.modrinth.com/maven/"
+            }
+        }
+        filter {
+            includeGroupAndSubgroups("maven.modrinth")
+        }
+    }
+    // me.shedaniel.cloth:cloth-config-fabric
+    exclusiveContent {
+        forRepository {
+            maven {
+                url = "https://maven.shedaniel.me"
+            }
+        }
+        filter {
+            includeGroupAndSubgroups("me.shedaniel.cloth")
+            includeGroupAndSubgroups("me.shedaniel")
+        }
+    }
+    // dev.thomasglasser.sherdsapi:sherdsapi-*
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Sherds API'
+                url = 'https://dl.cloudsmith.io/public/thomasglasser/sherdsapi/maven/'
+            }
+        }
+        filter { includeGroupAndSubgroups "dev.thomasglasser.sherdsapi" }
+    }
+    // dev.thomasglasser.tommylib:tommylib-fabric (transitive dependency of sherdsapi-fabric)
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'TommyLib'
+                url = 'https://dl.cloudsmith.io/public/thomasglasser/tommylib/maven/'
+            }
+        }
+        filter { includeGroupAndSubgroups "dev.thomasglasser.tommylib" }
+    }
     exclusiveContent {
         forRepository {
             maven {
@@ -26,9 +93,12 @@ repositories {
     }
 }
 
-
 sourceSets {
-    // In-game tests (Fabric Game Test API). Not part of the release jar; they run only through :fabric:runGametest.
+    main {
+        java.srcDir "${commonDir}/src/main/java"
+        resources.srcDir "${commonDir}/src/main/resources"
+    }
+    // In-game tests (Fabric Game Test API). Not part of the release jar; they run only through runGametest.
     gametest {
         compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
         runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
@@ -36,42 +106,47 @@ sourceSets {
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    compileOnly "org.jetbrains:annotations:${jetbrains_annotations_version}"
+    compileOnly("com.google.auto.service:auto-service-annotations:${auto_service_version}")
+    annotationProcessor("com.google.auto.service:auto-service:${auto_service_version}")
+
+    minecraft "com.mojang:minecraft:${minecraft_version}"
     mappings(loom.layered {
         it.officialMojangMappings()
-        it.parchment("org.parchmentmc.data:parchment-${project.parchment_minecraft_version}:${project.parchment_mappings_version}@zip")
+        it.parchment("org.parchmentmc.data:parchment-${parchment_minecraft_version}:${parchment_mappings_version}@zip")
     })
-    compileOnly(project.project(":common")) {
-        transitive = false
-    }
 
-    modImplementation "net.fabricmc:fabric-loader:${project.fabric_loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 
     // COMPAT
-    modCompileOnly("com.terraformersmc:modmenu:${project.mod_menu_version}") {
+    modCompileOnly("com.terraformersmc:modmenu:${mod_menu_version}") {
         transitive = false
     }
-    modLocalRuntime("com.terraformersmc:modmenu:${project.mod_menu_version}") {
+    modLocalRuntime("com.terraformersmc:modmenu:${mod_menu_version}") {
         transitive = false
     }
 
-    modImplementation "maven.modrinth:jade:${project.jade_version}+fabric"
+    modImplementation "maven.modrinth:jade:${jade_version}+fabric"
 
-    modCompileOnly("me.shedaniel.cloth:cloth-config-fabric:${rootProject.cloth_config}")
-    modLocalRuntime("me.shedaniel.cloth:cloth-config-fabric:${rootProject.cloth_config}")
+    modCompileOnly("me.shedaniel.cloth:cloth-config-fabric:${cloth_config}")
+    modLocalRuntime("me.shedaniel.cloth:cloth-config-fabric:${cloth_config}")
     modCompileOnly "dev.thomasglasser.sherdsapi:sherdsapi-fabric-${minecraft_version}:${sherdsapi_version}"
 
-    implementation(annotationProcessor("io.github.llamalad7:mixinextras-common:${rootProject.mixin_extras_version}"))
-    implementation("io.github.llamalad7:mixinextras-fabric:${rootProject.mixin_extras_version}")
+    implementation(annotationProcessor("io.github.llamalad7:mixinextras-common:${mixin_extras_version}"))
+    implementation("io.github.llamalad7:mixinextras-fabric:${mixin_extras_version}")
+}
+
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
 }
 
 loom {
     mods {
         "${mod_id}" {
             // Tell Loom about each source set used by your mod here. This ensures that your mod's classes are properly transformed by Loader.
+            // The common sources and resources are part of sourceSets.main, so they are covered too.
             sourceSet sourceSets.main
-            sourceSet project.project(":common").sourceSets.main
         }
         "lootr_gametest" {
             sourceSet sourceSets.gametest
@@ -128,23 +203,33 @@ loom {
     }
 }
 
-tasks.named("compileJava", JavaCompile) {
-    source(project.project(":common").sourceSets.main.allJava)
-}
-
-tasks.named("javadoc", Javadoc).configure {
-    source(project.project(":common").sourceSets.main.allJava)
-}
-
-tasks.named("sourcesJar", Jar) {
-    from(project.project(":common").sourceSets.main.allSource)
-}
-
 processResources {
-    // The access transformer is only used to compile :common against vanilla; Fabric uses the access widener.
+    filteringCharset = "UTF-8"
+
+    // The access transformer is only used by the NeoForge and Forge builds; Fabric uses the access widener.
     exclude("META-INF/accesstransformer.cfg")
 
-    from project.project(":common").sourceSets.main.resources
+    def expandProps = [
+            "version"              : declaredVersion,
+            "mod_version"          : mod_version,
+            "maven_group_id"       : mod_group,
+            "mod_id"               : mod_id,
+            "mod_display_name"     : mod_name,
+            "mod_description"      : mod_description,
+            "sources_url"          : sources_url,
+            "issues_url"           : issues_url,
+            "license_url"          : license_url,
+            "homepage_url"         : homepage_url,
+
+            "minecraft_version"    : minecraft_version,
+            "fabric_loader_version": fabric_loader_version,
+            "java_version"         : java_version,
+    ]
+
+    filesMatching(['pack.mcmeta', '*.mod.json']) {
+        expand expandProps
+    }
+    inputs.properties(expandProps)
 
     from("../datapacks") {
         into("datapacks")
@@ -156,17 +241,53 @@ processResources {
 
 tasks.named("processGametestResources", ProcessResources) {
     filteringCharset = "UTF-8"
-    def gametestProps = ["version": project.version]
+    def gametestProps = ["version": declaredVersion]
     inputs.properties(gametestProps)
     filesMatching("fabric.mod.json") {
         expand gametestProps
     }
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = java_version as int
+}
+
+javadoc {
+    options.tags = ["reason"]
+}
+
 // Ship the code and asset licences at the jar root; remapJar remaps the output of this task, so they end up in the release jar.
 tasks.named("jar", Jar) {
-    from(rootProject.file("LICENSE"))
-    from(rootProject.file("LICENSE_ASSETS.txt"))
+    from(file("../LICENSE"))
+    from(file("../LICENSE_ASSETS.txt"))
+}
+
+// ../common must stay loader-neutral: loader APIs are only reached through the platform services.
+tasks.register('checkCommonIsLoaderNeutral') {
+    def sources = fileTree("${commonDir}/src/main/java") { include '**/*.java' }
+    inputs.files sources
+    doLast {
+        def forbidden = ~/^\s*import\s+(static\s+)?(net\.fabricmc|net\.neoforged|net\.minecraftforge)\./
+        def offenders = sources.files.collectMany { file ->
+            file.readLines('UTF-8').findAll { it =~ forbidden }.collect { "${file.path}: ${it.trim()}" }
+        }
+        if (!offenders.isEmpty()) {
+            throw new GradleException("common/ must not import loader APIs:\n" + offenders.join('\n'))
+        }
+    }
+}
+
+// build compiles the game tests (so they cannot rot) but never runs them; that is the job of runGametest.
+tasks.named('check') {
+    dependsOn tasks.named('gametestClasses'), tasks.named('checkCommonIsLoaderNeutral')
 }
 
 tasks.build.mustRunAfter tasks.clean
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

@@ -1,0 +1,23 @@
+pluginManagement {
+    repositories {
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'lootr-remastered-fabric'
+
+// Values shared by all loader builds of this branch (mod id, version, Minecraft version, ...).
+def sharedProperties = new Properties()
+file('../gradle/shared.properties').withInputStream { sharedProperties.load(it) }
+gradle.beforeProject { project ->
+    sharedProperties.each { key, value -> project.ext.set(key as String, value) }
+}

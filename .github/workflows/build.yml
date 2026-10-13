@@ -1,0 +1,91 @@
+name: Build
+
+# Generic across every mc/* branch: loaders are discovered at runtime (any top-level folder with a gradlew.bat), so
+# this file can be copied unchanged onto other Minecraft version branches. The JDK that runs Gradle is ci_gradle_jdk
+# from gradle/shared.properties (compile toolchains are provisioned by the foojay resolver in settings.gradle).
+# Runners are pinned to ubuntu-24.04 rather than ubuntu-latest so CI stays reproducible when the latest label moves.
+
+on:
+  push:
+    branches: ["mc/**"]
+  pull_request:
+    branches: ["mc/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Discover loaders
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Discover loader folders
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          jdk=21
+          if [[ -f gradle/shared.properties ]]; then
+            found=$(grep -E '^ci_gradle_jdk=' gradle/shared.properties | head -n1 | cut -d'=' -f2 | tr -d '[:space:]' || true)
+            [[ -n "$found" ]] && jdk="$found"
+          fi
+
+          loaders="[]"
+          for dir in */ ; do
+            loader="${dir%/}"
+            [[ -f "$loader/gradlew.bat" && -f "$loader/gradlew" ]] || continue
+            loaders=$(jq -c --arg loader "$loader" --arg jdk "$jdk" \
+              '. + [{"loader": $loader, "gradle_jdk": $jdk}]' <<<"$loaders")
+          done
+
+          echo "Discovered loaders:"
+          echo "$loaders" | jq .
+
+          matrix=$(jq -c -n --argjson include "$loaders" '{"include": $include}')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build (${{ matrix.loader }})
+    needs: discover
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK ${{ matrix.gradle_jdk }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.gradle_jdk }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make gradlew executable
+        working-directory: ${{ matrix.loader }}
+        run: chmod +x ./gradlew
+
+      - name: gradlew build
+        working-directory: ${{ matrix.loader }}
+        run: ./gradlew build --no-daemon --stacktrace
+
+      - name: Upload jar
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.loader }}-jar
+          path: |
+            ${{ matrix.loader }}/build/libs/*.jar
+            !${{ matrix.loader }}/build/libs/*-sources.jar
+          if-no-files-found: warn
+          retention-days: 14

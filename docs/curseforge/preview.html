@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lootr Remastered - description preview</title>
+<style>
+:root { color-scheme: dark; }
+body { margin: 0; padding: 0 16px 48px; background: #0f1a22; color: #dbe5ea;
+  font: 16px/1.6 system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+.note { max-width: 1000px; margin: 0 auto; padding: 10px 0; color: #8fa3ad; font-size: 13px;
+  border-bottom: 1px solid #243845; }
+main { max-width: 1000px; margin: 0 auto; }
+h1, h2 { color: #f2f6f8; line-height: 1.25; }
+h1 { margin: 28px 0 16px; font-size: 32px; }
+h2 { margin: 36px 0 12px; padding-bottom: 6px; font-size: 24px; border-bottom: 1px solid #243845; }
+p, ul, ol { margin: 0 0 14px; }
+li { margin: 3px 0; }
+strong { color: #ffffff; }
+a { color: #5fd6c8; }
+code { padding: 1px 5px; border-radius: 3px; background: #1a2a35; color: #f0d68a;
+  font: 14px/1.4 Consolas, "Courier New", monospace; }
+img { display: block; max-width: 100%; height: auto; margin: 18px 0; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<div class="note">Preview of docs/curseforge/description.md - not the live page</div>
+<main>
+<h1>Lootr Remastered</h1>
+<img src="img/banner.png" alt="Lootr Remastered">
+<p>Per-player loot containers, extra loot for structure chests, and a loot table check, in one Fabric mod for Minecraft 1.21.1.</p>
+<p>Lootr Remastered is a fork of Lootr. It does what Lootr does, does what the mod Loot Integrations and its add-on packs do, keeps banned items out of loot, fixes and tidies the Lootr core, and has new pixel art for every texture.</p>
+<img src="img/hero_dungeon.png" alt="Every loot container of the mod in one dungeon room">
+<h2>What it does</h2>
+<p><strong>Every player gets their own loot.</strong> A chest, barrel, shulker box, minecart with chest, decorated pot, suspicious sand or gravel, or elytra item frame that has a loot table becomes a Lootr container. Each player who opens it gets an inventory rolled from the loot table, so nobody misses out because someone else was first. Containers can optionally decay or refresh, and teams can share inventories.</p>
+<img src="img/card_per_player.png" alt="Everyone gets their own loot">
+<img src="img/sealed_vs_spent.png" alt="Sealed until you open it">
+<p><strong>Structure chests get a few extra stacks.</strong> Rules in data packs select loot tables (mostly chests of structures). When such a table is rolled, one or two source tables are rolled too and a few of their stacks are added to the result. The original loot is never removed. 6 pools and 51 rule files are built in for vanilla and for many structure mods, and each rule file is active only when the mod it targets is installed. You can add your own pools and rules in any data pack.</p>
+<img src="img/card_extra_loot.png" alt="A few extra stacks in structure chests">
+<p><strong>Banned items stay out of loot.</strong> If you use Item Obliterator, the items it disables are removed from what a loot table itself rolls (chests, minecart chests, pots, archaeology, mob and block drops, integrated loot) and from stored per-player inventories when these are opened. Stacks that another mod adds after the table's own roll has returned (for example CraftTweaker or Porting Lib loot modifiers, the Aether's) do not pass through this filter; Lootr containers and stored per-player inventories are scrubbed separately in every case. You can also ban items and item tags in this mod's config.</p>
+<img src="img/card_item_bans.png" alt="Banned items stay out of loot">
+<p><strong>A loot table check.</strong> <code>/lootr verify</code> reads the loot tables, structure templates and worldgen files of your whole pack and writes a report to <code>logs/lootr/</code> (Markdown and JSON, grouped by the mod responsible). It lists loot tables that did not load, references to loot tables that do not exist, entries for banned items (also through nested tables), tables that can never produce anything, and structure chests that get no integrated loot. With <code>/lootr verify rolls 5</code> it also rolls every structure and chest table five times to find tables that throw errors or never produce an item.</p>
+<img src="img/card_verify.png" alt="A loot table check for your whole pack">
+<h2>The containers</h2>
+<p>Every container has two looks: not looted yet (dark timber, brass and a teal gem) and looted (grey timber, dark iron and an empty socket). What you see is your own state; another player still sees it sealed until they have looted it themselves.</p>
+<img src="img/assets_grid.png" alt="Every block of the mod">
+<img src="img/block_chest.png" alt="Loot Chest">
+<img src="img/block_trapped_chest.png" alt="Trapped Loot Chest">
+<img src="img/block_barrel.png" alt="Loot Barrel">
+<img src="img/block_shulker.png" alt="Loot Shulker">
+<img src="img/block_pot.png" alt="Decorated Loot Pot">
+<img src="img/block_suspicious_sand.png" alt="Suspicious Sand">
+<img src="img/block_suspicious_gravel.png" alt="Suspicious Gravel">
+<img src="img/block_item_frame.png" alt="Item Frame with Loot">
+<img src="img/block_minecart.png" alt="Minecart with Loot Chest">
+<img src="img/block_trophy.png" alt="Centennial Trophy">
+<p>Containers that decay or refresh tell you with a notice:</p>
+<img src="img/toasts.png" alt="Decay and refresh notices">
+<h2>Why one jar</h2>
+<p>Lootr, Loot Integrations and its add-ons are separate jars. This mod replaces them with one: fewer mods to update, one config file (<code>config/lootr.json</code>), one place where loot is extended, and the loot table check can see all of it. Extra stacks use one or two source rolls per extended roll, are limited by the free slots of the container, and use the random of the roll itself, so a container with a fixed seed stays reproducible.</p>
+<img src="img/card_one_jar.png" alt="One jar instead of eleven">
+<p>Cost, measured on a server copy of a pack with about 314 server-side jars: rolling an extended chest table took about 20 to 40 microseconds with the mod, of which integrated loot adds 12 to 16, and a roll happens once per player per container. Outside loot rolls a CPU profile found no samples in the mod's code on an idle server or with 4,096 loaded Lootr barrels, and under 1 percent during chunk generation; the figures are from one shared PC and one pack, so treat them as a rough guide.</p>
+<h2>Requirements</h2>
+<ul>
+<li>Minecraft 1.21.1, Fabric Loader 0.17.0 or newer, Java 21</li>
+<li>Fabric API</li>
+<li>Cloth Config API</li>
+<li>Optional: Item Obliterator (item bans), Mod Menu (config screen), Jade (tooltips)</li>
+</ul>
+<p>Install on the server and on every client. NeoForge is not supported.</p>
+<img src="img/card_install.png" alt="What you need">
+<h2>Switching from Lootr and Loot Integrations</h2>
+<ol>
+<li>Remove the Lootr jar, the Loot Integrations jar and every Loot Integrations add-on jar from <code>mods/</code>. Do not run old and new side by side.</li>
+<li>Keep Cloth Config. Libraries such as <code>cupboard</code> may be needed by other mods; check before you remove them.</li>
+<li>Existing worlds keep working: the mod id is still <code>lootr</code>, saved inventories are read as before, and mods that link against Lootr keep running.</li>
+<li><code>config/lootr.json</code> keeps working. If <code>config/lootintegrations.json</code> exists, its four settings (<code>moddedItemWeight</code>, <code>skipExistingItems</code>, <code>skipMapItems</code>, <code>debugOutput</code>) are taken over once and the file is left alone.</li>
+<li>The rules of the old add-ons are not read; the built-in rules replace them.</li>
+</ol>
+<h2>Compatibility notes</h2>
+<ul>
+<li><strong>Loot viewers</strong> such as EMI Loot and Advanced Loot Info read loot tables statically. They keep working, but they show the tables without the extra stacks of integrated loot.</li>
+<li>Mods that change dimensions or progression (for example Aether, Twilight Forest, Cataclysm, Eternal Starlight, Deeper and Darker) are excluded from integrated loot on purpose.</li>
+<li>The all-loot ban filter covers what a loot table itself rolls, not stacks that other mods add afterwards. If it cannot be applied because another mod changed the loot roll, Lootr logs one warning at start-up and switches it off; Lootr containers are still filtered.</li>
+<li>Bans check the top-level stack only; the contents of bundles and shulker box items are not inspected.</li>
+<li>Config changes on a dedicated server need a restart.</li>
+<li>The full list of limits is in the README on the source page.</li>
+</ul>
+<h2>Commands</h2>
+<p>All need operator permission. The most useful ones:</p>
+<ul>
+<li><code>/lootr verify</code> and <code>/lootr verify rolls &lt;count&gt;</code>: the loot table check.</li>
+<li><code>/lootr integrated &lt;loot_table&gt;</code>: what integrated loot does to one table. <code>/lootr integrated stats</code>: totals.</li>
+<li><code>/lootr &lt;chest|trapped_chest|barrel|shulker_box|pot|sand|gravel|cart|item_frame&gt; [loot_table]</code>: place or summon a Lootr container.</li>
+<li><code>/lootr id</code>, <code>/lootr openers &lt;pos&gt;</code>, <code>/lootr open_as &lt;player&gt;</code>, <code>/lootr clear &lt;player&gt;</code>, <code>/lootr refresh</code>, <code>/lootr decay</code>, <code>/lootr cull</code>, <code>/lootr custom-chest &lt;pos&gt;</code>.</li>
+</ul>
+<h2>Credits and licence</h2>
+<p>Lootr was written by Noobanidus, with contributions from ZestyBlaze and embeddedt. The idea of integrated loot is that of the mod Loot Integrations by someaddons; this mod contains no code or data of it, everything was written for this mod. Item Obliterator is only called through its public check method. All textures, the icon and the logo are new pixel art by navrelis. Full credits are in CREDITS.md in the repository.</p>
+<img src="img/texture_sheet.png" alt="Every texture of the mod, pixel for pixel">
+<p>Code, data and art are MIT licensed. Lootr Remastered is not affiliated with Mojang, Microsoft, Noobanidus or the authors of Loot Integrations.</p>
+<p>Source and issue tracker: <a href="https://github.com/navrelis/LootrRemastered">https://github.com/navrelis/LootrRemastered</a></p>
+</main>
+</body>
+</html>

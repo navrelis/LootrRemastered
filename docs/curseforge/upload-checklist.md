@@ -50,13 +50,14 @@ as this mod. The CurseForge relations above are still to be set by hand.
 | Name | Lootr Remastered (check that the name is allowed next to the original Lootr project) |
 | Slug | `lootr-remastered` (if free) |
 | Summary | `docs/curseforge/summary.txt` (232 characters; the limit is 250) |
-| Description | `docs/curseforge/description.md`. It is Markdown. If the editor does not render Markdown, paste it into the rich text editor in the HTML view after converting it, or format the headings and lists by hand. |
+| Description | `docs/curseforge/description.md`. It is Markdown. If the editor does not render Markdown, paste it into the rich text editor in the HTML view after converting it, or format the headings and lists by hand. It contains 22 image markers (`>>> PASTE IMAGE: ... <<<`); see `docs/curseforge/README.md` for the upload steps and open `docs/curseforge/preview.html` to see the page with the images. |
 | Logo | `art\logo\logo_512.png` (512 x 512, nearest-neighbour upscale of the 32 x 32 `art\logo\logo_native.png`; check the size limits of the form) |
 | Licence | MIT License |
 | Categories | suggestion (unverified, pick from the current list): Adventure and RPG, Server Utility, Utility and QoL, Miscellaneous. The original Lootr's categories were not looked up. |
 | Source link | `https://github.com/navrelis/LootrRemastered` |
 | Issues link | `https://github.com/navrelis/LootrRemastered/issues` |
 | Wiki, donation links | none |
+| Showcase images | 22 PNGs in `docs/curseforge/img/` (banner, dungeon scene, one image per container, block grid, texture sheet, notices, six feature cards), built by `art/showcase.py` and `art/showcase_cards.py`. They are software renderings of the shipped art on vanilla ground textures, not game screenshots. Check with `python art\showcase_preview.py --check`. |
 | Screenshots | game screenshots of the final jar exist outside the repository: nine 1280 x 720 captures of a test scene in the pack (chests, trapped chest, shulker box, decorated pot, barrels in six facings, item frames, chest minecart, trophies). They are test captures: they show the HUD of other mods in the pack (a minimap, Jade tooltips) and a debug action bar label, so for the project page the owner may prefer to take clean ones. `art/preview/` holds software renderings, not game screenshots. |
 | Third-party distribution (for example in modpacks) | owner decides; the MIT licence allows it |
 

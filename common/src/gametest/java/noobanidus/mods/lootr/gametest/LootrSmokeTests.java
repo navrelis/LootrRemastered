@@ -1,6 +1,5 @@
 package noobanidus.mods.lootr.gametest;
 
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.gametest.framework.GameTest;
@@ -19,7 +18,9 @@ import noobanidus.mods.lootr.common.api.data.blockentity.ILootrBlockEntity;
 import noobanidus.mods.lootr.common.api.data.inventory.ILootrInventory;
 import noobanidus.mods.lootr.common.api.registry.LootrRegistry;
 
-public class LootrSmokeTests implements FabricGameTest {
+import static noobanidus.mods.lootr.gametest.LootrTestSupport.EMPTY_STRUCTURE;
+
+public class LootrSmokeTests {
   private static final BlockPos CHEST_POS = new BlockPos(0, 1, 0);
   private static final int CONVERSION_TIMEOUT_TICKS = 200;
 

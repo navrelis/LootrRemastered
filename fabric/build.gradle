@@ -98,8 +98,12 @@ sourceSets {
         java.srcDir "${commonDir}/src/main/java"
         resources.srcDir "${commonDir}/src/main/resources"
     }
-    // In-game tests (Fabric Game Test API). Not part of the release jar; they run only through runGametest.
+    // In-game tests. The tests themselves and their data are loader-neutral and live in ../common/src/gametest;
+    // src/gametest holds the Fabric layer (mod metadata and the platform). Not part of the release jar; they run
+    // only through runGametest.
     gametest {
+        java.srcDir "${commonDir}/src/gametest/java"
+        resources.srcDir "${commonDir}/src/gametest/resources"
         compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
         runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
     }
@@ -265,7 +269,10 @@ tasks.named("jar", Jar) {
 
 // ../common must stay loader-neutral: loader APIs are only reached through the platform services.
 tasks.register('checkCommonIsLoaderNeutral') {
-    def sources = fileTree("${commonDir}/src/main/java") { include '**/*.java' }
+    def sources = fileTree(commonDir) {
+        include 'src/main/java/**/*.java'
+        include 'src/gametest/java/**/*.java'
+    }
     inputs.files sources
     doLast {
         def forbidden = ~/^\s*import\s+(static\s+)?(net\.fabricmc|net\.neoforged|net\.minecraftforge)\./

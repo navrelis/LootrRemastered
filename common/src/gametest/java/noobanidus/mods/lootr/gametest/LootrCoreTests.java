@@ -1,7 +1,6 @@
 package noobanidus.mods.lootr.gametest;
 
 import com.mojang.datafixers.util.Pair;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
@@ -74,12 +73,13 @@ import noobanidus.mods.lootr.common.entity.LootrChestMinecartEntity;
 import noobanidus.mods.lootr.common.impl.DefaultLootrAPIImpl;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinBaseContainerBlockEntity;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinDimensionDataStorage;
-import noobanidus.mods.lootr.fabric.config.ConfigManager;
-import noobanidus.mods.lootr.fabric.impl.LootrAPIImpl;
-import noobanidus.mods.lootr.fabric.impl.PlatformAPIImpl;
+import noobanidus.mods.lootr.gametest.platform.TestPlatform;
+import noobanidus.mods.lootr.gametest.platform.TestPlatforms;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -96,6 +96,8 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
+import static noobanidus.mods.lootr.gametest.LootrTestSupport.EMPTY_STRUCTURE;
+
 /**
  * Tests for the core of the mod: saved data, ticking data, the conversion queue and the static flags.
  * <br />
@@ -103,7 +105,7 @@ import java.util.function.Consumer;
  * synchronous block on the server thread and restored in a `finally`. Lines logged with `[T07]` and `[T08b]`
  * are the measurements the tests are built on.
  */
-public class LootrCoreTests implements FabricGameTest {
+public class LootrCoreTests {
   private static final String BATCH = "lootr_core";
   private static final int CONVERSION_TIMEOUT_TICKS = 400;
   private static final int CHUNK_WAIT_SECONDS = 60;
@@ -130,7 +132,7 @@ public class LootrCoreTests implements FabricGameTest {
             LootrAPI.handleProviderOpen(chest, player);
             player.closeContainer();
           }
-          storage().save();
+          saveStorage();
           helper.assertTrue(countFiles(helper, keys) == 20, "Every opened container must have a data file");
 
           int sameSession = requestUpdateTagsAndCountRewrites(chests, keys, registries, 5);
@@ -242,7 +244,7 @@ public class LootrCoreTests implements FabricGameTest {
           }
           objects = countCached(keys);
           lookups = countLookedUp(keys);
-          storage().save();
+          saveStorage();
           long files = countFiles(helper, keys);
           LootrAPI.LOG.info("[T07] item 2: update tags of 50 unopened chests, as loaded from disk, requested 3 times: saved data objects = {}, file lookups = {}, data files after a world save = {}", objects, lookups, files);
           helper.assertTrue(objects == 0, "Update tags created saved data for " + objects + " containers that were never opened");
@@ -303,7 +305,7 @@ public class LootrCoreTests implements FabricGameTest {
       helper.assertTrue(DataStorage.getRefreshValue(provider) == LootrAPI.getRefreshValue(), "Refresh was not started");
 
       long dirty = countDirty(List.of(DataStorage.DECAYS, DataStorage.REFRESHES));
-      storage().save();
+      saveStorage();
       boolean created = Files.exists(decayFile) || Files.exists(refreshFile);
       LootrAPI.LOG.info("[T07] item 3: ticking queries without legacy data: legacy data objects marked dirty = {}, legacy files created by the world save = {}", dirty, created);
       helper.assertTrue(dirty == 0, "Legacy ticking data was marked as changed although there is nothing to migrate");
@@ -352,22 +354,22 @@ public class LootrCoreTests implements FabricGameTest {
 
   @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
   public void nothingRefreshesOrDecaysByDefault(GameTestHelper helper) {
-    ConfigManager config = ConfigManager.get();
-    helper.assertTrue(!config.refresh.refresh_all && !config.decay.decay_all && ConfigManager.getRefreshDimensions().isEmpty() && ConfigManager.getDecayDimensions().isEmpty(), "The test needs the default configuration");
+    TestPlatform platform = TestPlatforms.get();
+    helper.assertTrue(!LootrAPI.shouldRefreshAll() && !LootrAPI.shouldDecayAll() && LootrAPI.getRefreshDimensions().isEmpty() && LootrAPI.getDecayDimensions().isEmpty(), "The test needs the default configuration");
     boolean refreshing = LootrAPI.isAnythingRefreshing();
     boolean decaying = LootrAPI.isAnythingDecaying();
     LootrAPI.LOG.info("[T07] item 4: default configuration: isAnythingRefreshing = {}, isAnythingDecaying = {}", refreshing, decaying);
     helper.assertTrue(!refreshing, "The empty refresh structure tag counts as \"something refreshes\"");
     helper.assertTrue(!decaying, "The empty decay structure tag counts as \"something decays\"");
 
-    config.refresh.refresh_all = true;
-    config.decay.decay_all = true;
+    platform.setRefreshAll(true);
+    platform.setDecayAll(true);
     try {
       helper.assertTrue(LootrAPI.isAnythingRefreshing(), "`refresh_all` does not enable refreshing");
       helper.assertTrue(LootrAPI.isAnythingDecaying(), "`decay_all` does not enable decaying");
     } finally {
-      config.refresh.refresh_all = false;
-      config.decay.decay_all = false;
+      platform.setRefreshAll(false);
+      platform.setDecayAll(false);
     }
 
     // A structure tag enables it as soon as it has content; the tags the mod ships are empty.
@@ -424,15 +426,7 @@ public class LootrCoreTests implements FabricGameTest {
           // How often is the waiting entry looked at over 100 server ticks?
           AtomicInteger checks = new AtomicInteger();
           ILootrAPI original = LootrAPI.INSTANCE;
-          LootrAPI.INSTANCE = new LootrAPIImpl() {
-            @Override
-            public boolean isWorldBorderSafe(Level borderLevel, ChunkPos pos) {
-              if (pos.equals(waiting)) {
-                checks.incrementAndGet();
-              }
-              return super.isWorldBorderSafe(borderLevel, pos);
-            }
-          };
+          LootrAPI.INSTANCE = countingWorldBorderChecks(original, waiting, checks);
           try {
             for (int i = 0; i < 100; i++) {
               BlockEntityTicker.onServerTick(server);
@@ -750,15 +744,15 @@ public class LootrCoreTests implements FabricGameTest {
   public void zeroTickDelayDoesNotCrash(GameTestHelper helper) {
     ILootrInfoProvider provider = provider(helper, UUID.randomUUID(), helper.absolutePos(BlockPos.ZERO), "Tick");
     helper.assertTrue(provider.getRandomOffset() == 0, "The test needs a provider without a random offset");
-    ConfigManager config = ConfigManager.get();
-    int tickDelay = config.conversion.tickDelay;
-    config.conversion.tickDelay = 0;
+    TestPlatform platform = TestPlatforms.get();
+    int tickDelay = LootrAPI.getTickDelay();
+    platform.setTickDelay(0);
     try {
       LootrAPI.handleProviderTick(provider);
     } catch (ArithmeticException e) {
       throw new GameTestAssertException("A tick delay of 0 crashes the container tick: " + e);
     } finally {
-      config.conversion.tickDelay = tickDelay;
+      platform.setTickDelay(tickDelay);
     }
     helper.succeed();
   }
@@ -779,7 +773,7 @@ public class LootrCoreTests implements FabricGameTest {
       LootrSavedData data = DataStorage.getData(provider);
       helper.assertTrue(data.createInventory(provider, player, DefaultLootFiller.getInstance()) != null, "No inventory was created");
       NewTickingData.getRefreshData().setCompletesIn(server, ticking, 1000);
-      storage().save();
+      saveStorage();
       helper.assertTrue(Files.exists(dataFile(helper, section)) && Files.exists(dataFile(helper, key)), "The test files were not written");
       NewTickingData.getRefreshData().setCompletesIn(server, ticking, 2000);
       SavedData dirtySection = storageCache().get(section);
@@ -901,7 +895,7 @@ public class LootrCoreTests implements FabricGameTest {
           List<ILootrBlockEntity> chests = lootrChests(helper, positions);
           List<String> keys = chests.stream().map(ILootrInfo::getInfoKey).toList();
 
-          storage().save();
+          saveStorage();
           long objects = countCached(keys);
           long files = countFiles(helper, keys);
           LootrAPI.LOG.info("[T08b] item c: 20 converted chests, one world save: saved data objects = {}, data files = {}", objects, files);
@@ -911,7 +905,7 @@ public class LootrCoreTests implements FabricGameTest {
           chests.forEach(ILootrBlockEntity::performUpdate);
           objects = countCached(keys);
           long dirty = countDirty(keys);
-          storage().save();
+          saveStorage();
           files = countFiles(helper, keys);
           LootrAPI.LOG.info("[T08b] item c: `performUpdate` on 20 unopened chests, one world save: saved data objects = {}, of them marked as changed = {}, data files = {}", objects, dirty, files);
           helper.assertTrue(objects == 0, "`performUpdate` created saved data for " + objects + " containers that were never opened");
@@ -926,7 +920,7 @@ public class LootrCoreTests implements FabricGameTest {
           }
           objects = countCached(keys);
           dirty = countDirty(keys);
-          storage().save();
+          saveStorage();
           files = countFiles(helper, keys);
           LootrAPI.LOG.info("[T08b] item c: opener query and `performUpdate` on 20 unopened chests, one world save: saved data objects = {}, of them marked as changed = {}, data files = {}", objects, dirty, files);
           helper.assertTrue(files == 0, files + " data files were written for containers that were never opened");
@@ -1004,9 +998,9 @@ public class LootrCoreTests implements FabricGameTest {
           ServerPlayer player = playerAt(helper, pos);
           UUID playerId = LootrAPI.resolveServerPlayerTeam(player);
           int looted = player.getStats().getValue(LootrRegistry.getLootedStat());
-          ConfigManager config = ConfigManager.get();
-          config.decay.decay_all = true;
-          config.refresh.refresh_all = true;
+          TestPlatform platform = TestPlatforms.get();
+          platform.setDecayAll(true);
+          platform.setRefreshAll(true);
           try {
             lock.setLockKey(new LockCode("gametest"));
             LootrAPI.handleProviderOpen(chest, player);
@@ -1035,8 +1029,8 @@ public class LootrCoreTests implements FabricGameTest {
             LootrAPI.handleProviderOpen(chest, player);
             helper.assertTrue(player.getStats().getValue(LootrRegistry.getLootedStat()) == looted + 1, "Opening again was counted");
           } finally {
-            config.decay.decay_all = false;
-            config.refresh.refresh_all = false;
+            platform.setDecayAll(false);
+            platform.setRefreshAll(false);
             lock.setLockKey(LockCode.NO_LOCK);
             player.closeContainer();
             NewTickingData.getDecayData().clearTicking(server, chest.getInfoUUID());
@@ -1054,7 +1048,7 @@ public class LootrCoreTests implements FabricGameTest {
     ResourceKey<Level> missing = ResourceKey.create(Registries.DIMENSION, LootrAPI.rl("gametest_no_such_dimension"));
     ILootrInfoProvider provider = new CustomLootrInfoProvider(id, ILootrInfo.generateInfoKey(id), helper.absolutePos(BlockPos.ZERO), 27, TABLE, 1L, Component.literal("Nowhere"), missing, null, null, null, BuiltInLootrTypes.CHEST);
     helper.assertTrue(provider.getInfoLevel() == null, "The test needs a container without a level");
-    helper.assertTrue(!ConfigManager.get().decay.decay_all && !ConfigManager.get().refresh.refresh_all, "The test needs the default configuration");
+    helper.assertTrue(!LootrAPI.shouldDecayAll() && !LootrAPI.shouldRefreshAll(), "The test needs the default configuration");
     boolean decaying;
     boolean refreshing;
     try {
@@ -1100,7 +1094,7 @@ public class LootrCoreTests implements FabricGameTest {
       // What a team change does for every player of the team.
       Pair<List<Integer>, List<Integer>> sync = syncData(player);
       objects = countCached(keys);
-      storage().save();
+      saveStorage();
       long files = countFiles(helper, keys);
       LootrAPI.LOG.info("[T08b] item g: 10 unopened loot minecarts, sync data after a team change built once: saved data objects = {}, data files after a world save = {}", objects, files);
       helper.assertTrue(objects == 0, "Building the sync data created saved data for " + objects + " entities that were never opened");
@@ -1276,13 +1270,24 @@ public class LootrCoreTests implements FabricGameTest {
     return String.join(", ", traces);
   }
 
-  // The sync data that is sent after a team change (ids of opened and of closed entities); a protected method builds it.
-  private static Pair<List<Integer>, List<Integer>> syncData(ServerPlayer player) {
-    return new PlatformAPIImpl() {
-      Pair<List<Integer>, List<Integer>> build() {
-        return getSyncData(player);
+  // An API implementation that counts the world border checks of one chunk and passes every call on to the delegate.
+  private static ILootrAPI countingWorldBorderChecks(ILootrAPI delegate, ChunkPos watched, AtomicInteger counter) {
+    return (ILootrAPI) Proxy.newProxyInstance(ILootrAPI.class.getClassLoader(), new Class<?>[]{ILootrAPI.class}, (proxy, method, args) -> {
+      if (method.getName().equals("isWorldBorderSafe") && watched.equals(args[1])) {
+        counter.incrementAndGet();
       }
-    }.build();
+      try {
+        return method.invoke(delegate, args);
+      } catch (InvocationTargetException e) {
+        throw e.getCause();
+      }
+    });
+  }
+
+  // The sync data that is sent after a team change (ids of opened and of closed entities); a protected method builds it,
+  // which is why the test layer of the loader does it.
+  private static Pair<List<Integer>, List<Integer>> syncData(ServerPlayer player) {
+    return TestPlatforms.get().syncData(player);
   }
 
   private static Set<UUID> uuids(CompoundTag tag, String name) {
@@ -1366,7 +1371,7 @@ public class LootrCoreTests implements FabricGameTest {
         chest.asBlockEntity().getUpdateTag(registries);
       }
       rewrites += (int) countDirty(keys);
-      storage().save();
+      saveStorage();
     }
     return rewrites;
   }
@@ -1377,6 +1382,12 @@ public class LootrCoreTests implements FabricGameTest {
       throw new GameTestAssertException("The data storage is not available");
     }
     return storage;
+  }
+
+  // Writes all saved data, and returns when the files are written: NeoForge hands them to an I/O worker.
+  private static void saveStorage() {
+    storage().save();
+    TestPlatforms.get().awaitSavedDataWrites();
   }
 
   private static Map<String, SavedData> storageCache() {
@@ -1413,7 +1424,7 @@ public class LootrCoreTests implements FabricGameTest {
 
   // What a server restart does to the data storage: everything is written, nothing stays in memory.
   private static void simulateRestart(Collection<String> keys) {
-    storage().save();
+    saveStorage();
     keys.forEach(storageCache()::remove);
   }
 

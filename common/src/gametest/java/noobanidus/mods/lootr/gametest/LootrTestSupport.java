@@ -11,8 +11,16 @@ import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
 import net.minecraft.world.level.storage.loot.LootTable;
 import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.api.data.blockentity.ILootrBlockEntity;
+import noobanidus.mods.lootr.gametest.platform.TestPlatforms;
 
 public final class LootrTestSupport {
+  /**
+   * The structure template of every test that needs no structure: an empty 8x8x8 box, shipped with the test data in
+   * `data/lootr_gametest/structure/empty.nbt`. Fabric API's `fabric-gametest-api-v1:empty` does not exist on NeoForge,
+   * and NeoForge ships none, so the test data carries its own; both loaders use this id as it is.
+   */
+  public static final String EMPTY_STRUCTURE = "lootr_gametest:empty";
+
   private LootrTestSupport() {
   }
 
@@ -52,6 +60,7 @@ public final class LootrTestSupport {
   @SuppressWarnings("removal")
   public static ServerPlayer createRealPlayer(GameTestHelper helper) {
     ServerPlayer player = helper.makeMockServerPlayerInLevel();
+    TestPlatforms.get().prepareMockPlayer(player);
     if (LootrAPI.isFakePlayer(player)) {
       throw new GameTestAssertException("Mock player " + player.getGameProfile().getName() + " is treated as a fake player by Lootr");
     }

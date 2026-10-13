@@ -1,6 +1,5 @@
 package noobanidus.mods.lootr.gametest;
 
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -19,12 +18,14 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.storage.loot.BuiltInLootTables;
 import noobanidus.mods.lootr.common.api.registry.LootrRegistry;
-import noobanidus.mods.lootr.fabric.network.LootrNetworkingInit;
+import noobanidus.mods.lootr.common.impl.DefaultPlatformAPIImpl;
+
+import static noobanidus.mods.lootr.gametest.LootrTestSupport.EMPTY_STRUCTURE;
 
 /**
  * Tests for the two changes of T21: the position check of the update request and the block entity lookup of the hopper hook.
  */
-public class LootrPerformanceFixTests implements FabricGameTest {
+public class LootrPerformanceFixTests {
   private static final String BATCH = "lootr_t21";
   private static final int CONVERSION_TIMEOUT_TICKS = 200;
 
@@ -39,9 +40,9 @@ public class LootrPerformanceFixTests implements FabricGameTest {
     ChunkPos chunk = new ChunkPos(far);
     helper.assertTrue(!level.getChunkSource().hasChunk(chunk.x, chunk.z), "The far chunk is loaded before the request");
 
-    helper.assertTrue(!LootrNetworkingInit.mayRequestUpdate(player, level, far, viewDistance), "A position far from the player was accepted");
+    helper.assertTrue(!DefaultPlatformAPIImpl.mayRequestUpdate(player, level, far, viewDistance), "A position far from the player was accepted");
     // With a view distance that covers the position only the loaded check is left.
-    helper.assertTrue(!LootrNetworkingInit.mayRequestUpdate(player, level, far, 1_000_000), "A position in an unloaded chunk was accepted");
+    helper.assertTrue(!DefaultPlatformAPIImpl.mayRequestUpdate(player, level, far, 1_000_000), "A position in an unloaded chunk was accepted");
     helper.assertTrue(!level.getChunkSource().hasChunk(chunk.x, chunk.z), "The check loaded the far chunk");
     helper.succeed();
   }
@@ -69,8 +70,8 @@ public class LootrPerformanceFixTests implements FabricGameTest {
         .thenExecute(() -> {
           try {
             helper.assertTrue(player.level() == level && level.isLoaded(pos), "The test needs the player and the position in the test level");
-            helper.assertTrue(LootrNetworkingInit.mayRequestUpdate(player, level, pos, viewDistance), "The same request in the player's own dimension was refused");
-            helper.assertTrue(!LootrNetworkingInit.mayRequestUpdate(player, nether, pos, viewDistance), "A position in another dimension than the player's was accepted");
+            helper.assertTrue(DefaultPlatformAPIImpl.mayRequestUpdate(player, level, pos, viewDistance), "The same request in the player's own dimension was refused");
+            helper.assertTrue(!DefaultPlatformAPIImpl.mayRequestUpdate(player, nether, pos, viewDistance), "A position in another dimension than the player's was accepted");
           } finally {
             nether.setChunkForced(chunk.x, chunk.z, false);
           }
@@ -89,13 +90,13 @@ public class LootrPerformanceFixTests implements FabricGameTest {
 
     // The player is moved, not ticked, so the loaded chunk stays where it is; the limit is the view distance plus one chunk.
     movePlayerToChunk(player, chunk.x, chunk.z, pos.getY());
-    helper.assertTrue(LootrNetworkingInit.mayRequestUpdate(player, level, pos, viewDistance), "A loaded position in the player's chunk was refused");
+    helper.assertTrue(DefaultPlatformAPIImpl.mayRequestUpdate(player, level, pos, viewDistance), "A loaded position in the player's chunk was refused");
     movePlayerToChunk(player, chunk.x + viewDistance + 1, chunk.z - viewDistance - 1, pos.getY());
-    helper.assertTrue(LootrNetworkingInit.mayRequestUpdate(player, level, pos, viewDistance), "A loaded position at the edge of the view distance was refused");
+    helper.assertTrue(DefaultPlatformAPIImpl.mayRequestUpdate(player, level, pos, viewDistance), "A loaded position at the edge of the view distance was refused");
     movePlayerToChunk(player, chunk.x + viewDistance + 2, chunk.z, pos.getY());
-    helper.assertTrue(!LootrNetworkingInit.mayRequestUpdate(player, level, pos, viewDistance), "A loaded position outside the view distance was accepted");
+    helper.assertTrue(!DefaultPlatformAPIImpl.mayRequestUpdate(player, level, pos, viewDistance), "A loaded position outside the view distance was accepted");
     movePlayerToChunk(player, chunk.x, chunk.z - viewDistance - 2, pos.getY());
-    helper.assertTrue(!LootrNetworkingInit.mayRequestUpdate(player, level, pos, viewDistance), "A loaded position outside the view distance (other axis) was accepted");
+    helper.assertTrue(!DefaultPlatformAPIImpl.mayRequestUpdate(player, level, pos, viewDistance), "A loaded position outside the view distance (other axis) was accepted");
     helper.succeed();
   }
 

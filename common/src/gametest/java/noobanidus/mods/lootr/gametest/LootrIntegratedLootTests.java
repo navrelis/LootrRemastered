@@ -3,7 +3,6 @@ package noobanidus.mods.lootr.gametest;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
@@ -65,6 +64,8 @@ import java.util.Set;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
+import static noobanidus.mods.lootr.gametest.LootrTestSupport.EMPTY_STRUCTURE;
+
 /**
  * Tests for integrated loot. The pools, rules and loot tables are in the test data pack
  * (`data/lootr_gametest/lootr/integrated_loot` and `data/lootr_gametest/loot_table/integrated`); every test table
@@ -75,7 +76,7 @@ import java.util.stream.Collectors;
  * Settings and ban sources are global: a test changes them only inside one synchronous block on the server
  * thread and restores them in a `finally`. The runtime counters are compared as differences inside such a block.
  */
-public class LootrIntegratedLootTests implements FabricGameTest {
+public class LootrIntegratedLootTests {
   private static final String BATCH = "lootr_integrated_loot";
   private static final String RELOAD_BATCH = "lootr_integrated_loot_reload";
   private static final BlockPos CHEST_POS = new BlockPos(0, 1, 0);

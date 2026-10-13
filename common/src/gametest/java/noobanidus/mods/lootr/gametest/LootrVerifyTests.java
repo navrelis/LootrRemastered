@@ -4,7 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.registries.Registries;
@@ -41,6 +40,7 @@ import noobanidus.mods.lootr.common.verify.VerifyResult.RollError;
 import noobanidus.mods.lootr.common.verify.VerifyResult.RollInfo;
 import noobanidus.mods.lootr.common.verify.VerifyResult.Scanned;
 import noobanidus.mods.lootr.common.verify.VerifyResult.SummaryRow;
+import noobanidus.mods.lootr.gametest.platform.TestPlatforms;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.Logger;
@@ -63,6 +63,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+
+import static noobanidus.mods.lootr.gametest.LootrTestSupport.EMPTY_STRUCTURE;
 
 /**
  * Tests for the loot table verification (`/lootr verify`). The fixtures are in the test data pack:
@@ -92,7 +94,7 @@ import java.util.function.Predicate;
  * A run works on other threads and reads global state there, so the tests that need one share a single run in a
  * batch of its own: the batch registers the item ban they need, starts the run and waits for it.
  */
-public class LootrVerifyTests implements FabricGameTest {
+public class LootrVerifyTests {
   private static final String BATCH = "lootr_verify";
   private static final String RUN_BATCH = "lootr_verify_run";
   private static final String REPEAT_BATCH = "lootr_verify_repeat";
@@ -188,7 +190,7 @@ public class LootrVerifyTests implements FabricGameTest {
       }
 
       JsonObject origin = report.getAsJsonObject("origins").getAsJsonObject(TEST_ORIGIN);
-      helper.assertTrue(origin != null && origin.get("type").getAsString().equals("mod") && origin.get("name").getAsString().equals("Lootr Remastered Game Tests") && strings(origin.getAsJsonArray("packs")).equals(List.of(TEST_ORIGIN)), "The test data pack is not attributed to the test mod: " + origin);
+      helper.assertTrue(origin != null && origin.get("type").getAsString().equals("mod") && origin.get("name").getAsString().equals("Lootr Remastered Game Tests") && strings(origin.getAsJsonArray("packs")).equals(List.of(TestPlatforms.get().dataPackId(TEST_ORIGIN))), "The test data pack is not attributed to the test mod: " + origin);
       JsonObject vanilla = report.getAsJsonObject("origins").getAsJsonObject("minecraft");
       helper.assertTrue(vanilla != null && vanilla.get("version").getAsString().equals("1.21.1") && strings(vanilla.getAsJsonArray("packs")).contains("vanilla"), "The vanilla pack is not attributed to Minecraft: " + vanilla);
 
@@ -211,8 +213,20 @@ public class LootrVerifyTests implements FabricGameTest {
   public void loadFailuresAreClassified(GameTestHelper helper) {
     withSharedRun(helper, report -> {
       Collection<ResourceLocation> loaded = helper.getLevel().getServer().reloadableRegistries().getKeys(Registries.LOOT_TABLE);
-      for (String name : List.of("unknown_item", "invalid_json", "other_failure", "condition_fabric", "condition_neoforge", "condition_unknown")) {
+      // Each loader understands the condition form of its own API only. Fabric skips the two fixtures with a
+      // `fabric:load_conditions` entry and cannot load the NeoForge one (its item is unknown, so the unmet condition
+      // explains the failure). NeoForge skips the NeoForge fixture and reads the Fabric ones as plain data: they load.
+      boolean fabricConditions = TestPlatforms.get().skipsFilesByFabricConditions();
+      List<String> conditionFixtures = fabricConditions ? List.of("condition_fabric", "condition_neoforge", "condition_unknown") : List.of("condition_neoforge");
+      List<String> notLoaded = new ArrayList<>(List.of("unknown_item", "invalid_json", "other_failure"));
+      notLoaded.addAll(conditionFixtures);
+      for (String name : notLoaded) {
         helper.assertTrue(!loaded.contains(ResourceLocation.parse(NAMESPACE + "verify/" + name)), "The fixture verify/" + name + " was loaded, so it shows nothing");
+      }
+      if (!fabricConditions) {
+        for (String name : List.of("condition_fabric", "condition_unknown")) {
+          helper.assertTrue(loaded.contains(ResourceLocation.parse(NAMESPACE + "verify/" + name)), "The fixture verify/" + name + " was not loaded although this loader ignores its condition");
+        }
       }
       JsonArray failures = findings(report, "load_failure");
       JsonObject unknownItem = one(failures, "table", NAMESPACE + "verify/unknown_item");
@@ -233,16 +247,20 @@ public class LootrVerifyTests implements FabricGameTest {
       helper.assertTrue(failures.size() == 3, "Expected exactly the three fixtures but got " + failures);
 
       JsonArray skipped = findings(report, "skipped_by_condition");
-      JsonObject fabric = one(skipped, "table", NAMESPACE + "verify/condition_fabric");
-      helper.assertTrue(fabric.get("key").getAsString().equals("fabric:load_conditions") && fabric.get("result").getAsString().equals("false"), "Unexpected finding " + fabric);
+      if (fabricConditions) {
+        JsonObject fabric = one(skipped, "table", NAMESPACE + "verify/condition_fabric");
+        helper.assertTrue(fabric.get("key").getAsString().equals("fabric:load_conditions") && fabric.get("result").getAsString().equals("false"), "Unexpected finding " + fabric);
+      }
       // Its item is unknown as well; the unmet condition explains the file, so it is no error.
       JsonObject neoforge = one(skipped, "table", NAMESPACE + "verify/condition_neoforge");
       helper.assertTrue(neoforge.get("key").getAsString().equals("neoforge:conditions") && neoforge.get("result").getAsString().equals("false"), "Unexpected finding " + neoforge);
-      JsonObject unknown = one(skipped, "table", NAMESPACE + "verify/condition_unknown");
-      helper.assertTrue(unknown.get("key").getAsString().equals("fabric:load_conditions") && unknown.get("result").getAsString().equals("unknown"), "Unexpected finding " + unknown);
-      helper.assertTrue(skipped.size() == 3, "Expected exactly the three fixtures but got " + skipped);
+      if (fabricConditions) {
+        JsonObject unknown = one(skipped, "table", NAMESPACE + "verify/condition_unknown");
+        helper.assertTrue(unknown.get("key").getAsString().equals("fabric:load_conditions") && unknown.get("result").getAsString().equals("unknown"), "Unexpected finding " + unknown);
+      }
+      helper.assertTrue(skipped.size() == conditionFixtures.size(), "Expected exactly the fixtures " + conditionFixtures + " but got " + skipped);
 
-      helper.assertTrue(count(report, "load_failure", "error") == 3 && count(report, "skipped_by_condition", "info") == 3, "The summary does not count them");
+      helper.assertTrue(count(report, "load_failure", "error") == 3 && count(report, "skipped_by_condition", "info") == conditionFixtures.size(), "The summary does not count them");
     });
   }
 

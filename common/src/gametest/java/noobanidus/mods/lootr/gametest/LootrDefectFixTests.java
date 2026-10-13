@@ -1,7 +1,5 @@
 package noobanidus.mods.lootr.gametest;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -9,7 +7,6 @@ import com.google.gson.JsonParser;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.suggestion.Suggestion;
 import com.mojang.brigadier.tree.CommandNode;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -31,8 +28,7 @@ import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.api.registry.LootrRegistry;
 import noobanidus.mods.lootr.common.command.CommandLootr;
 import noobanidus.mods.lootr.common.impl.LootrServiceRegistry;
-import noobanidus.mods.lootr.fabric.config.ConfigManager;
-import noobanidus.mods.lootr.fabric.event.LootrEventsInit;
+import noobanidus.mods.lootr.gametest.platform.TestPlatforms;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,11 +39,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static noobanidus.mods.lootr.gametest.LootrTestSupport.EMPTY_STRUCTURE;
+
 /**
  * Tests for the small defects fixed in T08a: the command tree, the suggestion cache, the sounds of the suspicious
  * blocks, the trophy shape, the removed options and the refresh of the sections without a server.
  */
-public class LootrDefectFixTests implements FabricGameTest {
+public class LootrDefectFixTests {
   // The reload replaces the data of the whole server, so that test runs in a batch of its own.
   private static final String RELOAD_BATCH = "lootr_t08a_reload";
   private static final String KNOWN_TABLE = "minecraft:chests/simple_dungeon";
@@ -140,20 +138,10 @@ public class LootrDefectFixTests implements FabricGameTest {
 
   // ----- 6. The removed options -----
 
-  // GsonConfigSerializer reads the file with this Gson and `fromJson(reader, ConfigManager.class)`.
+  // The configuration formats differ (Gson into the config object on Fabric, a corrected TOML tree on NeoForge), so each loader checks its own.
   @GameTest(template = EMPTY_STRUCTURE)
   public void configWithRemovedKeysStillLoads(GameTestHelper helper) {
-    Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    String json = "{\"conversion\": {\"save_mode\": \"ALWAYS\", \"tickDelay\": 7, \"disable\": true}, \"decay\": {\"decay_value\": 99}, \"removed_section\": {\"x\": [1, 2]}}";
-    ConfigManager loaded;
-    try {
-      loaded = gson.fromJson(json, ConfigManager.class);
-    } catch (RuntimeException e) {
-      throw new GameTestAssertException("A configuration with removed keys does not load: " + e);
-    }
-    helper.assertTrue(loaded.conversion.tickDelay == 7 && loaded.conversion.disable, "Values next to the removed key were reset");
-    helper.assertTrue(loaded.decay.decay_value == 99, "Values of another section were reset");
-    helper.assertTrue(loaded.refresh.refresh_value == new ConfigManager().refresh.refresh_value, "A section that is not in the file lost its defaults");
+    TestPlatforms.get().assertConfigWithRemovedKeysLoads(helper);
     helper.succeed();
   }
 
@@ -161,15 +149,13 @@ public class LootrDefectFixTests implements FabricGameTest {
 
   @GameTest(template = EMPTY_STRUCTURE)
   public void refreshSectionsWithoutServerStaysOffTheClient(GameTestHelper helper) {
-    MinecraftServer server = LootrEventsInit.serverInstance;
-    LootrEventsInit.serverInstance = null;
-    try {
-      LootrAPI.refreshSections();
-    } catch (Throwable t) {
-      throw new GameTestAssertException("Refreshing the sections without a server reaches client code on a dedicated server: " + t);
-    } finally {
-      LootrEventsInit.serverInstance = server;
-    }
+    TestPlatforms.get().runWithoutServer(() -> {
+      try {
+        LootrAPI.refreshSections();
+      } catch (Throwable t) {
+        throw new GameTestAssertException("Refreshing the sections without a server reaches client code on a dedicated server: " + t);
+      }
+    });
     helper.succeed();
   }
 

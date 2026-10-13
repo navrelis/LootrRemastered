@@ -1,8 +1,6 @@
 package noobanidus.mods.lootr.gametest;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
@@ -38,6 +36,7 @@ import noobanidus.mods.lootr.common.itemban.ItemBanSettings;
 import noobanidus.mods.lootr.common.itemban.ItemBanSource;
 import noobanidus.mods.lootr.common.itemban.ItemBans;
 import noobanidus.mods.lootr.common.itemban.ObliteratorBanSource;
+import noobanidus.mods.lootr.gametest.platform.TestPlatforms;
 
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +45,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
+import static noobanidus.mods.lootr.gametest.LootrTestSupport.EMPTY_STRUCTURE;
+
 /**
  * Tests for the item ban layer.
  * <br />
@@ -53,7 +54,7 @@ import java.util.function.UnaryOperator;
  * server thread and restores them in a `finally`: nothing can leak into another test, also when a test fails.
  * The tests additionally run in their own batch, apart from the smoke tests.
  */
-public class LootrItemBanTests implements FabricGameTest {
+public class LootrItemBanTests {
   private static final String BATCH = "lootr_item_bans";
   private static final BlockPos CHEST_POS = new BlockPos(0, 1, 0);
   private static final int CONVERSION_TIMEOUT_TICKS = 200;
@@ -266,11 +267,11 @@ public class LootrItemBanTests implements FabricGameTest {
       // Other sources keep working next to a failing one.
       whileBanned("next_to_throwing", BANNED, () -> helper.assertTrue(ItemBans.isBanned(new ItemStack(BANNED)), "A working source was ignored because another one fails"));
 
-      // A data reload allows one more report. The event is fired exactly the way Fabric API does after data
+      // A data reload allows one more report. The event is fired exactly the way the loader does after data
       // packs were loaded, so this also checks that Lootr listens to it. The failing source is taken out
       // meanwhile because other mods roll loot in their own listeners.
       ItemBans.unregister(throwing);
-      CommonLifecycleEvents.TAGS_LOADED.invoker().onTagsLoaded(helper.getLevel().getServer().reloadableRegistries().get(), false);
+      TestPlatforms.get().fireTagsLoaded(helper.getLevel().getServer());
       helper.assertTrue(!ItemBans.hasWarned(name), "The data reload did not reset the reported sources");
       ItemBans.register(throwing);
       ItemBans.isBanned(new ItemStack(BANNED));

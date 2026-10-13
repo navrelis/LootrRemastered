@@ -62,7 +62,7 @@ python art\showcase_preview.py --check
 
 The first two build the images into `img/`, the third writes `preview.html` and `description_published.md` from `description.md`, and `--check` verifies that every marker names an existing file, every image is used by exactly one marker, the marker lines have the exact form, every PNG is at most 1000 px wide and 400,000 bytes, every marker has a gallery address (and every address is used), and `preview.html` and `description_published.md` are up to date.
 
-The generators need a Minecraft 1.21.1 client jar. They find the one in the Gradle Loom cache (`%USERPROFILE%\.gradle\caches\fabric-loom\1.21.1\`) automatically; set the environment variable `LOOTR_MC_JAR` to use another jar. The output is byte-identical on every run.
+The generators read the mod's own textures and `trophy.json` from the version branch named by `LOOTR_VERSION_DIR` (default `versions\1.21.1`, see `art\README.md`), and they need a Minecraft 1.21.1 client jar. They find the one in the Gradle Loom cache (`%USERPROFILE%\.gradle\caches\fabric-loom\1.21.1\`) automatically; set the environment variable `LOOTR_MC_JAR` to use another jar. The output is byte-identical on every run.
 
 ## What the images contain
 

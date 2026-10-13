@@ -13,6 +13,11 @@ the script again reproduces byte-identical files.
     python art/generate.py --check         additionally print a sha256 per written file
     python art/generate.py --no-previews   skip art/preview/ (faster)
 
+The game resources (textures, trophy model, mod icon, data pack icons) are written into a version
+branch, not into this branch: LOOTR_VERSION_DIR names the checkout of that branch, as an absolute path
+or relative to the repository root; the default is versions/1.21.1 (the worktree of mc/1.21.1).  The
+logo (art/logo/) and the previews (art/preview/) stay in this repository.
+
 Only the Python standard library is used.
 
 Layout of this file
@@ -36,9 +41,37 @@ import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ART = os.path.join(ROOT, "art")
-ASSETS = os.path.join(ROOT, "common", "src", "main", "resources", "assets")
+VERSION_DIR_ENV = "LOOTR_VERSION_DIR"
+VERSION_DIR_DEFAULT = os.path.join("versions", "1.21.1")
+
+
+def resolve_version_dir():
+    """The checkout of the version branch that holds the game resources (see the module docstring)."""
+    wanted = os.environ.get(VERSION_DIR_ENV) or VERSION_DIR_DEFAULT
+    path = os.path.normpath(os.path.join(ROOT, wanted))        # an absolute `wanted` wins over ROOT
+    if not os.path.isdir(os.path.join(path, "common", "src", "main", "resources")):
+        sys.exit("error: %s is not a checkout of a Lootr Remastered version branch (no common/src/main/resources in it).\n"
+                 "       The game resources live on the branches mc/<minecraft version>, not on main.  Create the worktrees\n"
+                 "       with scripts/setup-worktrees.ps1, or set %s to the folder of the branch to use\n"
+                 "       (absolute, or relative to %s)." % (path, VERSION_DIR_ENV, ROOT))
+    return path
+
+
+VERSION_DIR = resolve_version_dir()
+ASSETS = os.path.join(VERSION_DIR, "common", "src", "main", "resources", "assets")
 TEX = os.path.join(ASSETS, "lootr", "textures")
 PREVIEW = os.path.join(ART, "preview")
+
+
+def rel(path):
+    """`path` relative to the version branch (common/..., fabric/..., datapacks/...) or, for files that stay
+    in this repository (art/...), relative to the repository root; always with forward slashes."""
+    p = os.path.normcase(os.path.abspath(path))
+    for base in (VERSION_DIR, ROOT):
+        b = os.path.normcase(base) + os.sep
+        if p.startswith(b):
+            return os.path.relpath(os.path.abspath(path), base).replace("\\", "/")
+    return path.replace("\\", "/")
 
 # ---------------------------------------------------------------------------
 # 1. PNG writer / reader (8-bit RGBA only on the way out)
@@ -1778,9 +1811,9 @@ def build_all(previews=True):
     native = logo()
     files.append((os.path.join(ART, "logo", "logo_native.png"), png_bytes(native)))
     files.append((os.path.join(ART, "logo", "logo_512.png"), png_bytes(native.scaled(16))))
-    files.append((os.path.join(ROOT, "fabric", "src", "main", "resources", "icon.png"), png_bytes(native.scaled(8))))
+    files.append((os.path.join(VERSION_DIR, "fabric", "src", "main", "resources", "icon.png"), png_bytes(native.scaled(8))))
     for pack in ("lootr_no_advancements", "lootr_no_suspicious_blocks"):
-        files.append((os.path.join(ROOT, "datapacks", pack, "pack.png"), png_bytes(native.scaled(2))))
+        files.append((os.path.join(VERSION_DIR, "datapacks", pack, "pack.png"), png_bytes(native.scaled(2))))
 
     if previews:
         for name, canvas in build_previews(tex, model, native).items():
@@ -1796,7 +1829,7 @@ def main():
             f.write(data)
     if "--check" in sys.argv:
         for path, data in sorted(files):
-            print(hashlib.sha256(data).hexdigest(), os.path.relpath(path, ROOT).replace("\\", "/"))
+            print(hashlib.sha256(data).hexdigest(), rel(path))
     print("wrote %d files" % len(files))
 
 

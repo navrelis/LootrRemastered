@@ -1,232 +1,99 @@
 # Lootr Remastered
 
-Lootr Remastered is a Fabric mod for Minecraft 1.21.1. It gives every player their own copy of the loot in a
+Lootr Remastered is a Minecraft mod (mod id `lootr`) that gives every player their own copy of the loot in a
 loot container, adds a few extra stacks from other loot tables to the containers of vanilla and modded structures,
 keeps banned items out of loot rolls and Lootr containers, and can check a whole pack's loot tables with one command.
-
 It is a fork of [Lootr](https://github.com/LootrMinecraft/Lootr) (code under the MIT licence) and takes over the job of
-the mod Loot Integrations with its add-ons, in one jar. Mod id: `lootr`. Version 2.0.0. Fabric only.
+the mod Loot Integrations with its add-ons, in one jar.
 
-What the mod does not do: it does not change structures or loot tables on disk, it does not remove loot that a
-table yields (extra stacks are only added), and it does not show the extra stacks in loot viewers (see
-[Known limitations](#known-limitations)).
+This branch, `main`, is the **hub**: it has no game code. The mod itself lives on one branch per Minecraft version,
+`mc/<minecraft version>`. `main` holds what ties the branches together: documentation, scripts, the templates for
+the files every branch shares, the art generator, the CurseForge material, the licences, the changelog and the credits.
 
-## Requirements
+What the mod does is described in the [user guide](docs/USER_GUIDE.md) (requirements, installation, features, commands,
+configuration, integrated loot data, verification report, known limitations).
 
-| | Needed | Notes |
-|---|---|---|
-| Minecraft | 1.21.1 | |
-| Java | 21 or newer | |
-| Fabric Loader | 0.17.0 or newer | `fabric.mod.json` |
-| Fabric API | 0.100.3 or newer | built against 0.116.7+1.21.1 |
-| Cloth Config API | 15.0.127 or newer | required; provides the config screen and file |
-| Item Obliterator | optional | its disabled items are kept out of loot, see [Item bans](#item-bans) |
-| Mod Menu, Jade | optional | config screen entry, container tooltips |
+## Support matrix
 
-The jar also contains compatibility code for Sherds API and Create; neither is required. Install it on the server and on every client.
+"available" means that the branch builds a jar for this loader; "in progress" that the work has started and no jar is
+ready; "planned" that nothing exists yet. Only 2.0.0 for Fabric 1.21.1 has been released.
 
-## Installation
+| Minecraft | Fabric | NeoForge | Forge | Branch |
+|---|---|---|---|---|
+| 1.21.1 | available (2.1.0 built from the branch; 2.0.0 released, tag `fabric-1.21.1-2.0.0`) | in progress | planned | `mc/1.21.1` |
+| 1.21.11 | planned | planned | planned | `mc/1.21.11` (planned) |
+| 26.3 | planned | planned | planned | `mc/26.3` (planned) |
+| 1.20.1 | planned | use the Forge jar | planned | planned |
+| 1.19.2 | planned | no NeoForge for this version | planned | planned |
+| 1.18.2 | planned | no NeoForge | planned | planned |
+| 1.16.5 | planned | no NeoForge | planned | planned |
 
-Put the jar `lootr-remastered-fabric-1.21.1-2.0.0.jar` into `mods/`. Default settings work without changes.
+Order of the ports and the upstream branch each one starts from: [docs/PORTING.md](docs/PORTING.md).
 
-### Switching from Lootr and Loot Integrations
+## Where the code is
 
-This mod replaces the original Lootr and Loot Integrations with all its add-ons (`lootintegrations_*` and similar).
+Each version branch is self-contained and has this shape (details in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)):
 
-1. Remove from `mods/`: the Lootr jar, the Loot Integrations jar and every Loot Integrations add-on jar. Do not run the old and new mod side by side.
-2. Keep Cloth Config. `cupboard`: Lootr Remastered does not need it (it is not in the mod's dependency list), but other mods may; check what depends on it before you remove it.
-3. Existing worlds keep working: the mod id is `lootr`, saved per-player inventories under `data/lootr` are read as before, and the Java packages and API of Lootr are unchanged, so mods that link against Lootr keep running.
-4. `config/lootr.json` keeps working; new sections are added with defaults on the first start.
-5. `config/lootintegrations.json` is read once, on the first start with this mod: `moddedItemWeight` n becomes `modded_item_weight` n + 1, and `skipExistingItems`, `skipMapItems` and `debugOutput` are taken over as `skip_existing_items`, `skip_map_items` and `debug_log`. The file itself is not changed or deleted. The flag `integrated_loot.imported_loot_integrations_config` in `config/lootr.json` records that this happened; set it to `false` to take the values over again.
-6. The rules of the Loot Integrations add-ons are not read. The built-in rules of this mod take their place, and each one is active only when the mod it targets is present.
+```
+common/               code and resources shared by all loaders of the branch: a source tree without a build file
+fabric/               standalone Gradle build (own wrapper) for the Fabric jar
+neoforge/, forge/     the same for the other loaders, where the branch has them
+gradle/shared.properties   mod id, version, Minecraft version, library versions; read by every loader build
+datapacks/            the two optional data packs that are built into the jar
+build-all.ps1         builds every loader folder of the branch
+release.ps1           builds, checks and copies the jars to <loader>/release/
+```
 
-## Features
+The loader folders do not depend on each other: each one compiles `common/` into its own jar through a `srcDir`, so
+`gradlew build` in one loader folder is enough to get that loader's jar. `build-all.ps1` and `release.ps1`, the CI
+workflow and `.gitattributes` are the same on every branch; their master copies are in [templates/branch/](templates/branch/).
 
-### Per-player loot (from Lootr)
+Jar names: `lootr-remastered-<loader>-<minecraft>-<mod version>.jar`, for example
+`lootr-remastered-fabric-1.21.1-2.1.0.jar`. The version declared inside the jar is `<minecraft>-<mod version>`.
+See [docs/RELEASING.md](docs/RELEASING.md).
 
-- A container with a loot table is turned into a Lootr container when it is loaded: chests, trapped chests, barrels, shulker boxes, minecarts with chests, decorated pots, suspicious sand and gravel, and item frames that hold an elytra. Each player who opens one gets their own inventory, rolled from the loot table; what one player takes does not affect another.
-- Optional decay (a container crumbles away some time after it has been opened) and refresh (a container yields new loot after a delay), by loot table, mod id, dimension or structure tag, or for everything.
-- Optional shared inventories for teams. Break protection with several switches. Advancements and a statistic for looted containers.
-- Block, entity and structure tags decide what is converted and what is excluded (`data/lootr/tags/...`). Two optional data packs are built in: "Disable Lootr Advancements" and "Disable Lootr Converting Suspicious Blocks".
+## Getting the branches
 
-### Integrated loot (replaces Loot Integrations)
+Locally every version branch is checked out as a git worktree under `versions/<minecraft version>/` of the main
+checkout (`versions/` is git-ignored). With PowerShell 7:
 
-Rules in data packs select loot tables, usually chests of structures; when such a table is rolled, one or two source tables from a pool are rolled as well and a few of their stacks are added to the result.
+```powershell
+git clone <repository> "Lootr Remastered"
+cd "Lootr Remastered"
+pwsh scripts/setup-worktrees.ps1 -Fetch     # one worktree per origin/mc/* branch; safe to run again
+pwsh scripts/build-all-versions.ps1         # build-all.ps1 in every worktree (needs Java and network for Gradle)
+cd versions/1.21.1/fabric
+./gradlew build --no-daemon                 # or just one loader
+```
 
-- The loot table files are not rewritten. The original loot is never removed or merged. Extra stacks are limited by the free slots of the container being filled and by `max_extra_stacks`.
-- Source tables are rolled with the random of the roll itself, so a container with a fixed seed stays reproducible. Source rolls never trigger integrated loot themselves. Explorer maps are not created for source rolls (setting `skip_map_items`), so opening a chest does not start a structure search.
-- A table gets at most one rule: the first match by priority, file id and entry order.
-- Tables are extended only if they are of type chest, vault or untyped. Items in the item tag `lootr:integrated_loot/excluded` (command blocks, barriers, spawners and similar) and banned items are never added.
-- 57 built-in data files ship in the jar: 6 pools of vanilla chest loot and 51 rule files for vanilla and for the structure mods named in them. A rule file is active only when all mods in its `required_mods` are loaded and, if it lists `required_namespaces`, a loot table of each of those namespaces exists. Mods that change dimensions or progression (Aether, Twilight Forest, Cataclysm, Eternal Starlight, Deeper and Darker, Astral Dimension, Bosses of Mass Destruction) have exclude-only rule files, so the loot tables they name get no extras. Packs can override or add rule files.
-
-### Item bans
-
-- If Item Obliterator is installed, every item it disables is removed from what a loot table itself rolls (chests, minecart chests, pots, archaeology, mob and block drops, integrated loot) and from per-player Lootr inventories. Stacks that another mod adds after the table's own roll has returned (for example loot modifiers of CraftTweaker or Porting Lib, such as the Aether's) do not pass through this filter; Lootr containers and stored per-player inventories are scrubbed separately in every case. If the hook on the loot roll cannot be applied because another mod changed the method, Lootr logs one warning at start-up and switches the all-loot filter off. The mod calls only the public check method of Item Obliterator through a method handle.
-- Stacks that were generated before an item was banned are removed from stored per-player inventories when they are opened. This deletes the stack permanently (it is the same as Item Obliterator's own behaviour). Switch it off with `scrub_saved_inventories`.
-- The list `extra_banned_items` bans more items without Item Obliterator: item ids (`namespace:item`) and item tags (`#namespace:tag`).
-
-### Loot table verification
-
-`/lootr verify` checks the loot tables of all data packs and the integrated loot data and writes a report; see [Verification report](#verification-report).
-
-### Fixes and optimisation of the Lootr core
-
-See [CHANGELOG.md](CHANGELOG.md) for the list. In short: saved data is no longer rewritten after every restart, unopened containers no longer create data objects, the conversion queue costs less, several static flags became thread-safe, and a refresh while a container screen is open closes that screen with a message.
-
-### Art
-
-All textures, the trophy model, the mod icon and the logo are new pixel art, written by `art/generate.py` (standard library only). No artwork of the original Lootr is included. See [LICENSE_ASSETS.txt](LICENSE_ASSETS.txt).
-
-## Commands
-
-Everything starts with `/lootr` and needs permission level 2 (operator). "Stand on" means: the container is at your feet or in the block under you.
-
-| Command | What it does |
+| Path | Contents |
 |---|---|
-| `/lootr` | Shows the usage line. |
-| `/lootr <chest\|trapped_chest\|barrel\|shulker_box\|pot\|sand\|gravel> [<loot_table>]` | Places a Lootr container of that type at your position with the loot table (a random one if left out). |
-| `/lootr cart [<loot_table>]`, `/lootr item_frame [<loot_table>]` | Summons a Lootr minecart with chest or item frame. |
-| `/lootr integrated <loot_table>` | Says whether integrated loot extends that table, which rule file, entry and pattern matched, the pool and its sources, and the rolls. |
-| `/lootr integrated stats` | Counts of usable pools, active and inactive rule files, extended and excluded tables, and totals since server start (extensions, source rolls, stacks added, failures). |
-| `/lootr verify` | Starts a loot table verification. One run at a time. |
-| `/lootr verify rolls <count>` | The same, and rolls every structure and `chests/` loot table `count` times (0 to 100). |
-| `/lootr id` | Shows the UUID of the container you stand on. |
-| `/lootr openers <x> <y> <z>` | Lists the players that have opened the container at that position. |
-| `/lootr open_as <player>`, `/lootr open_as_uuid <uuid>` | Opens the stored inventory of that player in the container you stand on. |
-| `/lootr clear <player>` | Deletes the stored inventories of a player (by name from the profile cache). |
-| `/lootr cclear <entities>` | The same for the players the selector matches; with team loot, for their team. |
-| `/lootr refresh`, `/lootr decay` | Sets the container you stand on to refresh or decay, with the configured delay. |
-| `/lootr cull` | Deletes, in the background, saved data files of containers that have no stored inventory, no opener and were never opened. Prints how many. |
-| `/lootr custom-chest <pos>` | Turns a container that holds items but has no loot table into a Lootr container with those items as the reference. |
-| `/lootr custom-area <from> <to>` | The same for every container in the box. |
-| `/lootr custom-map <dimension>` | The same for all generated chunks of a dimension, as a background job with progress messages. |
-| `/lootr custom-chest-old`, `/lootr custom-area-old <from> <to>` | The older variants from Lootr, for the container you stand on and for a box. |
-| `/lootr force_chunk`, `/lootr force_radius <radius>`, `/lootr force_all` | Queues the block entities of your chunk, of the chunks within the radius, or of the chunks the server has loaded, for conversion. |
+| `docs/USER_GUIDE.md` | the user documentation of the mod |
+| `docs/ARCHITECTURE.md` | hub and version branches, layout of a branch, how `common/` reaches the loader |
+| `docs/PORTING.md` | how a version branch is made, upstream bases, toolchains, order of the ports |
+| `docs/RELEASING.md` | version, jar names, `release.ps1`, CurseForge material |
+| `docs/TESTING.md` | builds, game tests, server start test, manual client checks |
+| `docs/curseforge/` | CurseForge description, images, upload checklist (its `README.md` explains the generators) |
+| `docs/licence-audit.md`, `docs/tools/check_jar.py` | the licence audit and the script that checks a built jar |
+| `art/` | generator for all pixel art and the showcase images, see [art/README.md](art/README.md) |
+| `scripts/` | `setup-worktrees.ps1`, `build-all-versions.ps1`, `sync-branch-infra.ps1` |
+| `templates/branch/` | the files every version branch shares, see [templates/README.md](templates/README.md) |
+| `CHANGELOG.md`, `CREDITS.md` | changes per version; who the mod builds on |
+| `LICENSE`, `LICENSE_ASSETS.txt` | code, data and art licence; licence of the artwork and resource files |
 
-### Start-up mode for the verification
+The art generator and the checks in `art/` read the game resources from the worktree named by the environment
+variable `LOOTR_VERSION_DIR` (default `versions/1.21.1`).
 
-`-Dlootr.verify=true` runs one verification once the server has started; `-Dlootr.verify=exit` also stops a dedicated server afterwards. `-Dlootr.verify.rolls=<n>` sets the sample rolls (0 to 100). Other values are ignored with a warning in the log.
+## Documents
 
-## Configuration
-
-`config/lootr.json` (Cloth Config / AutoConfig), also editable in the Mod Menu config screen. On a dedicated server, changes to the file need a restart. Item ban and integrated loot settings are applied again when the config is loaded or saved.
-
-| Section | Contents |
-|---|---|
-| `debug` | `report_unresolved_tables` |
-| `seed` | `randomize_seed` |
-| `conversion` | `disable`, elytra and structure item frame conversion, `world_border`, `perform_piecewise_check`, `bypass_spawn_protection`, `skip_logging_no_loot_table_at_generation`, `tickDelay` (decay and refresh check interval, default 20 ticks) |
-| `breaking` | `disable_break`, `enable_break`, `enable_fake_player_break`, `power_comparators`, `blast_resistant`, `blast_immune`, `trapped_custom`, `should_drop_player_loot`, `break_to_drop_loot`, `brushables_self_support`, `item_frames_self_support` |
-| `lists` | dimension and mod id whitelists and blacklists, `loot_table_blacklist`, `loot_modid_blacklist`, `loot_table_forced_whitelist` |
-| `decay` | `decay_value` (default 6000), `decay_all`, `decay_modids`, `decay_loot_tables`, `decay_dimensions`, `perform_tick_decay`, `start_tick_decay`, `replace_when_decayed` |
-| `refresh` | `refresh_value` (default 24000), `refresh_all`, `refresh_modids`, `refresh_loot_tables`, `refresh_dimensions`, `perform_tick_refresh`, `start_tick_refresh` |
-| `notifications` | `disable_message_styles` |
-| `client` | `vanilla_textures`, particles (`unopened_particles`, `refresh_particles`, `decay_particles`), `display_toasts`, `notification_delay`, `disable_notifications` |
-| `team` | `team_loot`, `pinned_team_resolver` |
-| `item_bans` | `respect_item_obliterator` (true), `filter_all_loot` (true; false = only Lootr containers), `scrub_saved_inventories` (true), `extra_banned_items` (empty list) |
-| `integrated_loot` | `enabled` (true), `modded_item_weight` (2; 1 to 1000), `skip_existing_items` (true), `skip_map_items` (true), `max_extra_stacks` (4; 0 to 9), `debug_log` (false), `imported_loot_integrations_config` |
-
-`modded_item_weight` matters when a source roll yields more candidate stacks than the rule asks for: candidates from other mods are drawn with this weight, vanilla items with weight 1.
-
-## Integrated loot data
-
-Pools and rules are JSON files in any data pack, also in your own:
-
-- Pool: `data/<namespace>/lootr/integrated_loot/pool/<path>.json`, id `<namespace>:<path>`.
-- Rule: `data/<namespace>/lootr/integrated_loot/rule/<path>.json`.
-
-The data is read on every data reload (`/reload`). A file that cannot be parsed is skipped with a warning in the log and listed by `/lootr verify`; it never affects other files.
-
-Pool `data/lootr/lootr/integrated_loot/pool/village.json` (shortened): a weighted list of source loot tables. `weight` is optional (default 1).
-
-```json
-{
-  "sources": [
-    { "table": "minecraft:chests/village/village_armorer", "weight": 1 },
-    { "table": "minecraft:chests/village/village_butcher" }
-  ]
-}
-```
-
-Rule file (`data/example/lootr/integrated_loot/rule/my_dungeons.json`):
-
-```json
-{
-  "required_mods": ["my_dungeon_mod"],
-  "required_namespaces": [],
-  "priority": 0,
-  "entries": [
-    { "tables": ["my_dungeon_mod:chests/boss_room"], "exclude": true },
-    { "tables": ["my_dungeon_mod:chests/treasure"], "pool": "lootr:overworld_rare", "rolls": 2 },
-    { "tables": ["my_dungeon_mod:chests/*"], "pool": "lootr:overworld_common", "rolls": { "min": 0, "max": 1 } }
-  ]
-}
-```
-
-Fields:
-
-| Field | Meaning |
-|---|---|
-| `required_mods` | Optional list of mod ids. The file is active only if all of them are loaded. |
-| `required_namespaces` | Optional list of namespaces. The file is active only if at least one loaded loot table exists in each (for mods without a Fabric mod id, and for plain data packs). |
-| `priority` | Optional integer, default 0. Files with a higher priority are consulted first; ties by file id. |
-| `entries` | Required list; the first entry that matches a table decides. |
-| `tables` | Required, non-empty list of patterns `namespace:path`. `*` matches any characters except `/`, `**` matches anything including `/`. Without a wildcard it is an exact id. |
-| `pool` | Pool id for an extending entry. |
-| `exclude` | `true` makes the matching tables never extended; an entry has either `pool` or `"exclude": true`, not both. |
-| `rolls` | Optional, default 1. A number, or `{ "min": a, "max": b }`; how many stacks the entry asks for. The settings cap it. |
-
-Built-in pools: `lootr:overworld_common`, `lootr:overworld_rare`, `lootr:village`, `lootr:ocean`, `lootr:nether`, `lootr:end`. Test one table with `/lootr integrated <table>`.
-
-## Verification report
-
-`/lootr verify` runs in the background (files are read on other threads; sample rolls run on the server thread in slices of at most 8 ms per tick) and changes nothing in the game. It writes to `logs/lootr/` in the game directory:
-
-- `verify-<yyyyMMdd-HHmmss>.md` (for reading: grouped by the mod or pack responsible, at most 25 findings per group) and `.json` (everything),
-- `verify-latest.md` and `verify-latest.json` (copies of the newest run).
-
-The report has a header (versions, duration, number of scanned files, item ban status, integrated loot status, sample rolls) and a summary table, then:
-
-| Section | Finding class | Meaning |
-|---|---|---|
-| A | `load_failure` | Loot table files that did not load, with the game's error. Sub-kinds: unknown items (the ids are listed), invalid JSON, other. `skipped_by_condition` (info): files whose load conditions are not met. |
-| B | `legacy_folder` | Files in `loot_tables/` (the folder before 1.21); the game ignores them. Says if the same id exists in `loot_table/`. |
-| C | `missing_reference` | References to loot tables that do not exist: nested tables, `set_loot_table`, container loot components, structure templates (`.nbt`), worldgen files. |
-| D | `banned_item` (info) | Loot table entries that name a banned item or a tag with banned members, and tables that reach one through nested loot table entries (`via` in the JSON report). Only when a ban source is active. |
-| E | `cannot_produce` | Tables that cannot yield anything judged from their entries (no pools, only empty entries, only banned items, only references to such tables). Warning if a structure container uses the table. With rolls: `roll_error` (a roll threw an exception) and `always_empty_in_rolls` (no roll produced an item; warning if a structure container uses the table, info otherwise). |
-| F | `no_integrated_loot` | For each loot table that a structure container uses: `extended`, `excluded`, `rule_problem` (a rule matches but has no effect), `not_applicable` (only pots or brushable blocks, no room for extra stacks), `no_rule`. A coverage table per origin. |
-| G | `integrated_loot_data` | Pool and rule file problems: malformed files, inactive rule files (missing mod or namespace), patterns that match no table, dropped sources, pools without usable source, matches of tables of another type. |
-| - | `internal_error` | Something the verification itself could not do; the rest is unaffected. |
-
-Findings have the severity error, warning or info. Rolls use the world spawn as the position, no integrated loot and no explorer maps; tables whose type needs more than a position are not rolled and are counted in the report; a table whose roll takes very long is cut short and listed. If at least 20 tables were sampled and at least 90 % of them were empty in every roll, the report and the summary say so at the top: the tables are not at fault then, something empties the loot rolls (usually mods that change loot rolls and get in each other's way).
-
-## Building and testing
-
-Java 21 and the Gradle wrapper are enough; Gradle downloads the rest.
-
-```
-.\gradlew.bat :fabric:build          # jar: fabric/build/libs/lootr-remastered-fabric-1.21.1-2.0.0.jar
-.\gradlew.bat :fabric:runGametest    # Fabric game tests on a headless server
-```
-
-(`./gradlew` on Linux and macOS.) The game tests are in `fabric/src/gametest`; they are not part of the release jar. `:fabric:runGametest` exits with a non-zero code if a test fails; the JUnit report is written to `fabric/build/gametest/junit.xml`. To check a built jar for the licence points of `docs/licence-audit.md`: `python docs/tools/check_jar.py <jar>`.
-
-The sources are in `common/` (code shared with the former NeoForge build; this repository builds Fabric only) and `fabric/`. The art and the logo are generated by `art/generate.py`.
-
-## Known limitations
-
-- Loot viewers such as EMI Loot and Advanced Loot Info read loot tables statically and do not show the extra stacks of integrated loot. They keep working and show the tables as they are in the data.
-- The all-loot ban filter covers what a loot table itself rolls. Stacks that another mod adds after that roll (loot modifiers of CraftTweaker, Porting Lib and similar) are not filtered; Lootr containers and stored per-player inventories are scrubbed in every case.
-- Only the top-level stack is checked against bans; the contents of bundles and shulker box items are not. A banned stack that a player put into their own Lootr inventory is deleted as well. An item frame whose reference item is banned still shows it.
-- `neoforge:conditions` in loot tables are judged by the verification against Fabric mod ids, so mods that run through a compatibility layer count as absent there. The verification's list of one-slot containers is fixed. Bans that a loot function sets while rolling are not seen by the static checks (D, E). Ban sources are called from the verification's scan threads.
-- With loot seed 0, vanilla uses the level's random for the roll, so extra stacks draw from it in that case; the slot layout of an extended container differs from vanilla for the same seed.
-- Changes to `config/lootr.json` on a dedicated server need a restart.
-- Open points found while fixing the core, not changed: a block entity sync request still creates one in-memory data object per asked container; `/lootr clear` skips saved data from before the opened flag existed; there is no message when a container is locked by another player.
-
-## Credits
-
-Lootr was written by Noobanidus; ZestyBlaze and embeddedt are listed as contributors. The idea of adding loot from other tables to structure containers is that of the mod Loot Integrations by someaddons; the implementation and all data here are our own. See [CREDITS.md](CREDITS.md).
+- [User guide](docs/USER_GUIDE.md)
+- [Architecture](docs/ARCHITECTURE.md), [Porting](docs/PORTING.md), [Releasing](docs/RELEASING.md), [Testing](docs/TESTING.md)
+- [Changelog](CHANGELOG.md), [Credits](CREDITS.md)
+- [Licence](LICENSE), [asset licence](LICENSE_ASSETS.txt), [licence audit](docs/licence-audit.md)
+- [CurseForge material](docs/curseforge/)
 
 ## Licence
 
-Code, data and art: MIT, Copyright (c) 2026 navrelis for the changes, and the original MIT notice of Lootr; see [LICENSE](LICENSE). The build puts `LICENSE` and `LICENSE_ASSETS.txt` at the root of the jar. For artwork and resource files see [LICENSE_ASSETS.txt](LICENSE_ASSETS.txt); the licence audit is in [docs/licence-audit.md](docs/licence-audit.md).
+Code, data and art: MIT, Copyright (c) 2026 navrelis for the changes, and the original MIT notice of Lootr; see
+[LICENSE](LICENSE). Artwork and resource files: [LICENSE_ASSETS.txt](LICENSE_ASSETS.txt). Lootr was written by
+Noobanidus; see [CREDITS.md](CREDITS.md).

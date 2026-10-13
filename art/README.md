@@ -4,7 +4,25 @@ Original artwork for Lootr Remastered; no pixels derived from Lootr or Minecraft
 
 This folder is the source of every image the mod ships and of the trophy block model. Nothing is
 painted by hand in an editor: `generate.py` holds the palettes, the hand-authored pixel grids and
-the drawing rules, and writes each file to its place in the repository.
+the drawing rules, and writes each file to its place: the game resources into a version branch, the
+logo and the previews into this folder.
+
+## Where the game resources are
+
+The game code and its resources live on the version branches `mc/<minecraft version>`, not on `main`.
+The scripts in this folder (`generate.py`, `verify.py`, and through them `showcase*.py`) find them in
+the checkout of one branch: the folder named by the environment variable `LOOTR_VERSION_DIR`, as an
+absolute path or relative to the repository root. Without the variable it is `versions\1.21.1`, the
+worktree of `mc/1.21.1` (see `scripts\setup-worktrees.ps1`). If the folder does not exist, or does not
+contain `common\src\main\resources`, the script stops with an error message that says so.
+
+```
+$env:LOOTR_VERSION_DIR = 'versions\1.21.1'     # PowerShell; this is the default
+```
+
+The paths in the table below are paths inside that checkout, except `art/…`, which is in this repository.
+After a run, the changed files of the version branch are committed on that branch, the changed files
+of `art/` on `main`.
 
 ## Running
 
@@ -13,7 +31,8 @@ python art/generate.py                 # textures, trophy model, logo, icons, pr
 python art/generate.py --check         # same, and print a sha256 per written file
 python art/generate.py --no-previews   # skip art/preview/
 python art/verify.py [git-revision]    # dimensions, validity, "is it what the generator makes",
-                                       # and pixel difference against a revision (default HEAD)
+                                       # and pixel difference against a revision (default HEAD of the
+                                       # version branch)
 ```
 
 Python 3 standard library only. Running the generator again reproduces byte-identical files.

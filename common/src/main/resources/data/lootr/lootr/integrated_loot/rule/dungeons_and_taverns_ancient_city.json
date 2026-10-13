@@ -1,8 +1,0 @@
-{
-  "required_mods": ["mr_dungeons_andtavernsancientcityoverhaul"],
-  "priority": 1,
-  "entries": [
-    { "tables": ["nova_structures:chests/ancient_city", "minecraft:chests/ancient_city_center"], "pool": "lootr:overworld_rare", "rolls": 2 },
-    { "tables": ["nova_structures:chests/ancient_city_ice_box"], "pool": "lootr:overworld_common", "rolls": { "min": 0, "max": 1 } }
-  ]
-}

@@ -1,8 +1,0 @@
-{
-  "entries": [
-    {
-      "tables": ["integrated/target_a"],
-      "pool": "lootr_gametest:bcd"
-    }
-  ]
-}

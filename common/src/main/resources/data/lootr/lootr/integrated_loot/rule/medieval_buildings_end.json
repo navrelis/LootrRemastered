@@ -1,8 +1,0 @@
-{
-  "required_mods": ["medievalend"],
-  "entries": [
-    { "tables": ["medievalend:*barrer*", "medievalend:*barrier*"], "pool": "lootr:end", "rolls": { "min": 0, "max": 1 } },
-    { "tables": ["medievalend:end_pyramid"], "pool": "lootr:end", "rolls": 2 },
-    { "tables": ["medievalend:end_*", "medievalend:ship_*"], "pool": "lootr:end", "rolls": 1 }
-  ]
-}

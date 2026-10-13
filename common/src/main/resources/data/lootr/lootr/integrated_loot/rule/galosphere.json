@@ -1,7 +1,0 @@
-{
-  "required_mods": ["galosphere"],
-  "entries": [
-    { "tables": ["galosphere:chests/pink_salt_shrine_library"], "pool": "lootr:overworld_rare", "rolls": 1 },
-    { "tables": ["galosphere:chests/pink_salt_shrine"], "pool": "lootr:overworld_common", "rolls": 1 }
-  ]
-}

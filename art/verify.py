@@ -7,6 +7,12 @@ For every shipped image this re-reads the file from disk with the generator's ow
 checks its dimensions, checks that it is exactly what generate.py produces, and compares it with
 the same path at the given git revision (default HEAD): byte identity and the share of pixels
 that differ.  It also checks the trophy model.  Exit code 1 if any check fails.
+
+The game resources are read from the version branch named by LOOTR_VERSION_DIR (default
+versions/1.21.1, see generate.py); art/logo/ is read from this repository.  The paths below
+(common/..., fabric/..., datapacks/...) are paths inside the version branch, which are also the
+paths in the git history, so the revision is resolved in the repository of the version branch (or in
+this repository if the folder is not a git checkout).  HEAD is then the head of that branch.
 """
 import hashlib
 import json
@@ -46,8 +52,16 @@ OPAQUE = [T + "block/" + n + ".png" for n in (
     "suspicious_sand_open", "trophy")]
 
 
+def disk(path):
+    """Where a path of EXPECTED lives on disk: art/... in this repository, the rest in the version branch."""
+    return os.path.join(g.ROOT if path.startswith("art/") else g.VERSION_DIR, *path.split("/"))
+
+
+GIT_DIR = g.VERSION_DIR if os.path.exists(os.path.join(g.VERSION_DIR, ".git")) else g.ROOT
+
+
 def git_show(rev, path):
-    r = subprocess.run(["git", "show", "%s:%s" % (rev, path)], cwd=g.ROOT, capture_output=True)
+    r = subprocess.run(["git", "show", "%s:%s" % (rev, path)], cwd=GIT_DIR, capture_output=True)
     return r.stdout if r.returncode == 0 else None
 
 
@@ -55,12 +69,12 @@ def main():
     rev = sys.argv[1] if len(sys.argv) > 1 else "HEAD"
     ok = True
     files = g.build_all(previews=False)
-    produced = {os.path.relpath(p, g.ROOT).replace("\\", "/"): d for p, d in files}
+    produced = {g.rel(p): d for p, d in files}
 
     print("%-52s %-8s %-6s %-10s %s" % ("file", "size", "fresh", "vs " + rev, "pixels changed (of all / of drawn)"))
     for path, want in EXPECTED.items():
         name = path[len(T):] if path.startswith(T) else path
-        data = open(os.path.join(g.ROOT, path), "rb").read()
+        data = open(disk(path), "rb").read()
         try:
             w, h, px = g.read_png(data)                  # also validates signature, chunk CRCs and the zlib stream
         except Exception as e:  # noqa: BLE001
@@ -91,12 +105,12 @@ def main():
 
     # trophy model: valid JSON, only existing textures, no player skin
     mpath = "common/src/main/resources/assets/lootr/models/block/trophy.json"
-    text = open(os.path.join(g.ROOT, mpath), encoding="utf-8").read()
+    text = open(disk(mpath), encoding="utf-8").read()
     model = json.loads(text)
     problems = []
     for key, ref in model["textures"].items():
         ns, _, name = ref.partition(":")
-        if ns != "lootr" or not os.path.isfile(os.path.join(g.ROOT, T, name + ".png")):
+        if ns != "lootr" or not os.path.isfile(disk(T + name + ".png")):
             problems.append("texture %s -> %s does not exist" % (key, ref))
     if "particle" not in model["textures"]:
         problems.append("no particle texture")
@@ -114,15 +128,15 @@ def main():
         problems.append("trophy.json on disk is not what generate.py produces")
     for rel in ("common/src/main/resources/assets/lootr/blockstates/trophy.json",
                 "common/src/main/resources/assets/lootr/models/item/trophy.json"):
-        if "lootr:block/trophy" not in open(os.path.join(g.ROOT, rel), encoding="utf-8").read():
+        if "lootr:block/trophy" not in open(disk(rel), encoding="utf-8").read():
             problems.append(rel + " does not point at lootr:block/trophy")
     atlas_dir = "common/src/main/resources/assets/minecraft/atlases/"
     for name in ("chests.json", "shulker_boxes.json", "decorated_pot.json"):
-        atlas = open(os.path.join(g.ROOT, atlas_dir, name), encoding="utf-8").read()
+        atlas = open(disk(atlas_dir + name), encoding="utf-8").read()
         json.loads(atlas)
         if "entity/player" in atlas:
             problems.append("atlas %s still stitches the player skin" % name)
-    if os.path.exists(os.path.join(g.ROOT, T, "logo.png")):
+    if os.path.exists(disk(T + "logo.png")):
         problems.append("textures/logo.png still exists")
     print("\ntrophy model / atlas / logo: %s" % ("ok (%d elements)" % len(model["elements"]) if not problems else "; ".join(problems)))
     ok = ok and not problems

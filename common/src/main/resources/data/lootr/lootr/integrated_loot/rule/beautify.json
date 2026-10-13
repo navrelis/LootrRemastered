@@ -1,6 +1,0 @@
-{
-  "required_mods": ["beautify"],
-  "entries": [
-    { "tables": ["beautify:chests/botanist/*"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } }
-  ]
-}

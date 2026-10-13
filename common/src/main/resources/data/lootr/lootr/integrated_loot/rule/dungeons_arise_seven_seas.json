@@ -1,8 +1,0 @@
-{
-  "required_mods": ["dungeons_arise_seven_seas"],
-  "entries": [
-    { "tables": ["dungeons_arise_seven_seas:chests/**_treasure"], "pool": "lootr:ocean", "rolls": 2 },
-    { "tables": ["dungeons_arise_seven_seas:chests/**_barrels", "dungeons_arise_seven_seas:chests/**_supply"], "pool": "lootr:ocean", "rolls": { "min": 0, "max": 1 } },
-    { "tables": ["dungeons_arise_seven_seas:chests/**"], "pool": "lootr:ocean", "rolls": 1 }
-  ]
-}

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Licence check of a built Lootr Remastered jar.  Python 3 standard library plus git.
 
-    python docs/tools/check_jar.py fabric/build/libs/lootr-remastered-fabric-1.21.1-2.0.0.jar [upstream-revision]
+    python docs/tools/check_jar.py versions/1.21.1/fabric/build/libs/lootr-remastered-fabric-1.21.1-2.1.0.jar [upstream-revision]
 
-Run it from the repository root.  The upstream revision defaults to b62e382a (Lootr 1.11.38.128),
-the commit this project started from.  The script reads the jar and git; it changes nothing.
+Run it from the repository root (the hub branch main; the jar is built on a version branch, here the
+worktree versions/1.21.1).  The upstream revision defaults to b62e382a (Lootr 1.11.38.128), the commit this
+project started from; it is looked up in the history of this repository.  The licence files are compared
+with LICENSE and LICENSE_ASSETS.txt of the current directory.  The script reads the jar and git; it
+changes nothing, and it needs no game resources of the working tree (so LOOTR_VERSION_DIR does not apply).
 
 It reports
   1. entries whose names must not be in the jar (old artwork, source art, other loaders, tests, ...);

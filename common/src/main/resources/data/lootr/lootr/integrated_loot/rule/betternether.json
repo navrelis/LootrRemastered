@@ -1,7 +1,0 @@
-{
-  "required_mods": ["betternether"],
-  "entries": [
-    { "tables": ["betternether:chests/wither_tower*", "betternether:chests/city_surprise"], "pool": "lootr:nether", "rolls": 2 },
-    { "tables": ["betternether:chests/*"], "pool": "lootr:nether", "rolls": 1 }
-  ]
-}

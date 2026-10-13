@@ -1,8 +1,0 @@
-{
-  "required_mods": ["betterfortresses"],
-  "entries": [
-    { "tables": ["betterfortresses:chests/keep"], "pool": "lootr:nether", "rolls": 2 },
-    { "tables": ["betterfortresses:chests/quarters", "betterfortresses:chests/storage"], "pool": "lootr:nether", "rolls": { "min": 0, "max": 1 } },
-    { "tables": ["betterfortresses:chests/*"], "pool": "lootr:nether", "rolls": 1 }
-  ]
-}

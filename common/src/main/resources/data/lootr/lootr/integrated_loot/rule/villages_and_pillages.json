@@ -1,7 +1,0 @@
-{
-  "required_mods": ["villagesandpillages"],
-  "entries": [
-    { "tables": ["villagesandpillages:village_witch/house/personal_chest"], "pool": "lootr:village", "rolls": 1 },
-    { "tables": ["villagesandpillages:village_witch/house/attic_chest", "villagesandpillages:village_witch/house/barrel"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } }
-  ]
-}

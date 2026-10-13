@@ -1,8 +1,0 @@
-{
-  "required_mods": ["medieval_nether"],
-  "entries": [
-    { "tables": ["medieval_nether:barrier_*"], "pool": "lootr:nether", "rolls": { "min": 0, "max": 1 } },
-    { "tables": ["medieval_nether:chests_castle_three"], "pool": "lootr:nether", "rolls": 2 },
-    { "tables": ["medieval_nether:chests_*"], "pool": "lootr:nether", "rolls": 1 }
-  ]
-}

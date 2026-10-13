@@ -6,7 +6,8 @@
     python art/showcase.py --check         additionally print a sha256 per written file
     python art/showcase.py --only <name>   build one image (file name without .png)
 
-The mod's art is read from the shipped PNGs and trophy.json, so the pictures show exactly what
+The mod's art is read from the shipped PNGs and trophy.json of the version branch named by
+LOOTR_VERSION_DIR (default versions/1.21.1, see generate.py), so the pictures show exactly what
 is in the jar.  Vanilla blocks and the vanilla font are read at run time from the Minecraft
 1.21.1 client jar Loom cached (or the one LOOTR_MC_JAR names); nothing of it is stored here.
 Running the script again reproduces byte-identical files.  Python standard library only.

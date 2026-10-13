@@ -3,12 +3,14 @@
 Nothing here has been uploaded. Field names follow the CurseForge project and file forms as I know them; check each one
 against the form you see, they change from time to time. Items marked (unverified) are suggestions I could not check.
 
+Paths of jars and sources are relative to the main checkout; the game code is on the branch `mc/1.21.1`, checked out at `versions\1.21.1` (`scripts\setup-worktrees.ps1`). That branch now builds version 2.1.0; the 2.0.0 jar named below is built from the tag `fabric-1.21.1-2.0.0`.
+
 ## Before anything goes public
 
 | Done | Item | Where |
 |---|---|---|
 | [ ] | The licence audit has passed: every row of the table in `docs/licence-audit.md` is "pass" or has an owner decision. Open points at the time of writing: history option (5) and `.knowledge/` in the public tree (3). The check of the built jar (6) is done: `LICENSE` and `LICENSE_ASSETS.txt` are at the jar root of the checked build. The 32 block state and model files are rewritten; 6 of them are necessarily identical to upstream (1b), which `check_jar.py` reports as `EXPECTED`. | `docs/licence-audit.md` |
-| [ ] | The built jar passes `python docs\tools\check_jar.py fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar b62e382a` (no FAIL, no unexplained CHECK). The final jar was checked this way with the result "no FAIL"; run the check again on the exact file that gets uploaded. | |
+| [ ] | The built jar passes `python docs\tools\check_jar.py versions\1.21.1\fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar b62e382a` (no FAIL, no unexplained CHECK). The final jar was checked this way with the result "no FAIL"; run the check again on the exact file that gets uploaded. | |
 | [ ] | The repository is public (the owner's step), because the description and `fabric.mod.json` link to `https://github.com/navrelis/LootrRemastered`. If it stays private, remove the last line of the description and the three contact links from `fabric/src/main/resources/fabric.mod.json` first. | |
 | [ ] | The in-pack results are in: the figures are in `CHANGELOG.md` (section "Measured on a server") and in the short "Cost" paragraph at the end of "Why one jar" in `docs/curseforge/description.md`. They describe one pack (about 314 server-side jars) on one shared PC and are a rough guide, not a promise; keep that wording if the text is edited. | |
 | [ ] | Do not publish with the project ids of the original Lootr (`361276`, `615106` on CurseForge, `EltpO5cN` on Modrinth). They were removed from the build; nothing in this repository can publish to them. | |
@@ -17,7 +19,7 @@ against the form you see, they change from time to time. Items marked (unverifie
 
 | Field | Value |
 |---|---|
-| File to upload | `fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar` (not the `-sources` jar and not a `-dev` jar if one is in the folder) |
+| File to upload | `versions\1.21.1\fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar` (not the `-sources` jar and not a `-dev` jar if one is in the folder) |
 | SHA-256 of the checked build | `61664C8299A6B86EED4A5B3198B93E5E87B2CA58403B4D9A4A8F4DDA37DE6FA0` (re-check after any rebuild) |
 | Display name | `Lootr Remastered 2.0.0` |
 | Version | 2.0.0 (the file name carries 1.21.1-2.0.0) |

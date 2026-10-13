@@ -5,6 +5,8 @@ task, and the lead's rewrite of the block state and model JSON files, `fabric/bu
 classified again after that rewrite, from the working tree). Upstream reference:
 commit `b62e382a` (Lootr 1.11.38.128, branch `mdg-1.21.1`). Date of the audit: 2026-10-08, updated the same day.
 
+Since the repository was split into a hub (`main`) and version branches, the game code, resources and build files named below (`common/`, `fabric/`, `datapacks/`, `gradle.properties`, `build.gradle`) are on the branch `mc/1.21.1`, checked out at `versions\1.21.1`; the audited tree is the one described above. The branch now builds version 2.1.0, so the 2.0.0 jars named below are built from the tag `fabric-1.21.1-2.0.0`.
+
 This is a technical comparison of files, not legal advice. Where a verdict depends on how a licence sentence is
 read, the audit says so and leaves the decision to the owner.
 
@@ -250,12 +252,12 @@ Option B, publish from a fresh history
 
 ## 6. The jar: repeatable check
 
-The jar is built by the lead (`.\gradlew.bat :fabric:build`; result `fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar`).
+The jar is built by the lead (`gradlew.bat build` in `versions\1.21.1\fabric`; result `versions\1.21.1\fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar`).
 
 Listing (PowerShell, from the repository root):
 
 ```powershell
-$jar = (Resolve-Path fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar).Path
+$jar = (Resolve-Path versions\1.21.1\fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar).Path
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::OpenRead($jar)
 $zip.Entries | Where-Object { -not $_.FullName.EndsWith('/') } | ForEach-Object FullName | Sort-Object | Set-Content jar-entries.txt
@@ -283,7 +285,7 @@ Allowed: `lootintegrations` only in `LootIntegrationsImport.class`, `LootrConfig
 Everything above, plus the comparison with upstream's blobs, is done by one script (needs Python 3 and git; it only reads):
 
 ```powershell
-python docs\tools\check_jar.py fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar b62e382a
+python docs\tools\check_jar.py versions\1.21.1\fabric\build\libs\lootr-remastered-fabric-1.21.1-2.0.0.jar b62e382a
 ```
 
 Expected output (checked on a stand-in zip built from the resource folders and the two licence files of the working tree, not on a real jar; the same zip without the licence files gave two FAIL lines in point 4):

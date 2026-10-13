@@ -1,6 +1,0 @@
-{
-  "required_mods": ["sawmill"],
-  "entries": [
-    { "tables": ["sawmill:chests/village_carpenter_*"], "pool": "lootr:village", "rolls": { "min": 0, "max": 1 } }
-  ]
-}

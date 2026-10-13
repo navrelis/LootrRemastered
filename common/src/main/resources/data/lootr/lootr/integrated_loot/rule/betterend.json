@@ -1,7 +1,0 @@
-{
-  "required_mods": ["betterend"],
-  "entries": [
-    { "tables": ["betterend:chests/end_village_bonus_loot"], "pool": "lootr:end", "rolls": 2 },
-    { "tables": ["betterend:chests/*"], "pool": "lootr:end", "rolls": 1 }
-  ]
-}

@@ -1,7 +1,0 @@
-{
-  "required_mods": ["illagerinvasion"],
-  "entries": [
-    { "tables": ["illagerinvasion:chests/illusioner_tower_stairs", "illagerinvasion:chests/labyrinth_map"], "pool": "lootr:overworld_common", "rolls": { "min": 0, "max": 1 } },
-    { "tables": ["illagerinvasion:chests/*"], "pool": "lootr:overworld_common", "rolls": 1 }
-  ]
-}

@@ -1,6 +1,0 @@
-{
-  "required_mods": ["yungsextras"],
-  "entries": [
-    { "tables": ["yungsextras:desert/chillzone", "yungsextras:desert/ruins"], "pool": "lootr:overworld_common", "rolls": { "min": 0, "max": 1 } }
-  ]
-}

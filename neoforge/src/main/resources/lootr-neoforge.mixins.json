@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "noobanidus.mods.lootr.neoforge.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "self.MixinLootrBarrelBlockEntity",
+    "self.MixinLootrBrushableBlockEntity"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

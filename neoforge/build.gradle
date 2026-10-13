@@ -1,0 +1,211 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.147'
+    id 'idea'
+}
+
+// The jar is lootr-remastered-neoforge-<minecraft_version>-<mod_version>.jar; the version declared in
+// neoforge.mods.toml keeps the "<minecraft_version>-<mod_version>" format (declaredVersion below).
+version = mod_version
+group = mod_group
+
+base {
+    archivesName = "lootr-remastered-neoforge-${minecraft_version}"
+}
+
+def declaredVersion = "${minecraft_version}-${mod_version}"
+
+java {
+    // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
+    toolchain.languageVersion = JavaLanguageVersion.of(java_version as int)
+    withSourcesJar()
+}
+
+// The loader-neutral code and assets in ../common are compiled and packaged into this jar (common has no build of its own).
+def commonDir = file('../common')
+
+repositories {
+    mavenCentral()
+    // maven.modrinth:jade
+    exclusiveContent {
+        forRepository {
+            maven {
+                url = "https://api.modrinth.com/maven/"
+            }
+        }
+        filter {
+            includeGroupAndSubgroups("maven.modrinth")
+        }
+    }
+    // dev.thomasglasser.sherdsapi:sherdsapi-*
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Sherds API'
+                url = 'https://dl.cloudsmith.io/public/thomasglasser/sherdsapi/maven/'
+            }
+        }
+        filter { includeGroupAndSubgroups "dev.thomasglasser.sherdsapi" }
+    }
+    // dev.thomasglasser.tommylib:tommylib-neoforge (transitive dependency of sherdsapi-neoforge)
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'TommyLib'
+                url = 'https://dl.cloudsmith.io/public/thomasglasser/tommylib/maven/'
+            }
+        }
+        filter { includeGroupAndSubgroups "dev.thomasglasser.tommylib" }
+    }
+}
+
+sourceSets {
+    main {
+        java.srcDir "${commonDir}/src/main/java"
+        resources.srcDir "${commonDir}/src/main/resources"
+    }
+}
+
+neoForge {
+    version = neo_version
+
+    parchment {
+        minecraftVersion = parchment_minecraft_version
+        mappingsVersion = parchment_mappings_version
+    }
+
+    // The access transformer lives in ../common; NeoForge loads it from the jar under the same path.
+    accessTransformers.from "${commonDir}/src/main/resources/META-INF/accesstransformer.cfg"
+    validateAccessTransformers = true
+
+    mods {
+        "${mod_id}" {
+            // The common sources and resources are part of sourceSets.main, so they are covered too.
+            sourceSet sourceSets.main
+        }
+    }
+
+    runs {
+        configureEach {
+            gameDirectory = project.file('run')
+            loadedMods = [mods."${mod_id}"]
+        }
+
+        client {
+            client()
+
+            if (project.hasProperty('mc_uuid')) {
+                programArguments.add("--uuid=${project.findProperty('mc_uuid')}")
+            }
+
+            if (project.hasProperty('mc_username')) {
+                programArguments.add("--username=${project.findProperty('mc_username')}")
+            }
+
+            if (project.hasProperty('mc_java_agent_path')) {
+                jvmArgument("-javaagent:${project.findProperty('mc_java_agent_path')}")
+            }
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+        }
+    }
+}
+
+// The console of the dev server takes commands ("stop", "lootr verify", ...).
+tasks.named('runServer') {
+    standardInput = System.in
+}
+
+dependencies {
+    compileOnly "org.jetbrains:annotations:${jetbrains_annotations_version}"
+    compileOnly("com.google.auto.service:auto-service-annotations:${auto_service_version}")
+    annotationProcessor("com.google.auto.service:auto-service:${auto_service_version}")
+
+    // COMPAT
+    implementation "maven.modrinth:jade:${jade_version}+neoforge"
+    compileOnly "dev.thomasglasser.sherdsapi:sherdsapi-neoforge-${minecraft_version}:${sherdsapi_version}"
+
+    implementation(annotationProcessor("io.github.llamalad7:mixinextras-common:${mixin_extras_version}"))
+    implementation("io.github.llamalad7:mixinextras-neoforge:${mixin_extras_version}")
+}
+
+// Expands the properties below in src/main/templates (neoforge.mods.toml). A missing property is an error.
+var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    var replaceProperties = [
+            version                      : declaredVersion,
+            mod_id                       : mod_id,
+            mod_name                     : mod_name,
+            mod_license                  : mod_license,
+            mod_authors                  : mod_authors,
+            mod_description              : mod_description,
+            issues_url                   : issues_url,
+            homepage_url                 : homepage_url,
+            minecraft_version_range      : minecraft_version_range,
+            neoforge_version_range_min   : neoforge_version_range_min,
+            neoforge_loader_version_range: neoforge_loader_version_range
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+// The output of generateModMetadata is a resource directory, for Gradle builds and for the IDE.
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+processResources {
+    filteringCharset = "UTF-8"
+
+    from("../datapacks") {
+        into("datapacks")
+        include("lootr_no_advancements/**")
+        include("lootr_no_suspicious_blocks/**")
+        exclude("**/.cache/**")
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = java_version as int
+}
+
+javadoc {
+    options.tags = ["reason"]
+}
+
+// Ship the code and asset licences at the jar root.
+tasks.named("jar", Jar) {
+    from(file("../LICENSE"))
+    from(file("../LICENSE_ASSETS.txt"))
+}
+
+// ../common must stay loader-neutral: loader APIs are only reached through the platform services.
+tasks.register('checkCommonIsLoaderNeutral') {
+    def sources = fileTree("${commonDir}/src/main/java") { include '**/*.java' }
+    inputs.files sources
+    doLast {
+        def forbidden = ~/^\s*import\s+(static\s+)?(net\.fabricmc|net\.neoforged|net\.minecraftforge)\./
+        def offenders = sources.files.collectMany { file ->
+            file.readLines('UTF-8').findAll { it =~ forbidden }.collect { "${file.path}: ${it.trim()}" }
+        }
+        if (!offenders.isEmpty()) {
+            throw new GradleException("common/ must not import loader APIs:\n" + offenders.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('checkCommonIsLoaderNeutral')
+}
+
+tasks.build.mustRunAfter tasks.clean
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

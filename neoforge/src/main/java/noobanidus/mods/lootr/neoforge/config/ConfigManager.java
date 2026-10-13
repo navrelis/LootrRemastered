@@ -1,0 +1,558 @@
+package noobanidus.mods.lootr.neoforge.config;
+
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
+import net.neoforged.neoforge.common.ModConfigSpec;
+import noobanidus.mods.lootr.common.api.LootrAPI;
+import noobanidus.mods.lootr.common.api.LootrTags;
+import noobanidus.mods.lootr.common.api.PlatformAPI;
+import noobanidus.mods.lootr.common.api.config.SyncedConfig;
+import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
+import noobanidus.mods.lootr.common.config.ConfigManagerBase;
+import noobanidus.mods.lootr.common.impl.LootrServiceRegistry;
+import noobanidus.mods.lootr.common.integratedloot.IntegratedLoot;
+import noobanidus.mods.lootr.common.integratedloot.IntegratedLootSettings;
+import noobanidus.mods.lootr.common.integratedloot.LootIntegrationsImport;
+import noobanidus.mods.lootr.common.itemban.ItemBanSettings;
+import noobanidus.mods.lootr.common.itemban.ItemBans;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
+
+@EventBusSubscriber(modid = LootrAPI.MODID)
+public class ConfigManager extends ConfigManagerBase {
+  public static final ModConfigSpec.BooleanValue REPORT_UNRESOLVED_TABLES;
+  public static final ModConfigSpec.BooleanValue RANDOMISE_SEED;
+  public static final ModConfigSpec.BooleanValue DISABLE;
+  public static final ModConfigSpec.IntValue MAXIMUM_AGE;
+  @Deprecated
+  public static final ModConfigSpec.BooleanValue CONVERT_MINESHAFTS;
+  public static final ModConfigSpec.BooleanValue CONVERT_ELYTRAS_TO_CHESTS;
+  public static final ModConfigSpec.BooleanValue CONVERT_ELYTRAS_TO_ITEM_FRAMES;
+  public static final ModConfigSpec.BooleanValue CONVERT_ITEM_FRAMES;
+  public static final ModConfigSpec.BooleanValue PERFORM_PIECEWISE_CHECK;
+  public static final ModConfigSpec.BooleanValue BYPASS_SPAWN_PROTECTION;
+  // Breaking
+  public static final ModConfigSpec.BooleanValue DISABLE_BREAK;
+  public static final ModConfigSpec.BooleanValue ENABLE_BREAK;
+  public static final ModConfigSpec.BooleanValue ENABLE_FAKE_PLAYER_BREAK;
+  public static final ModConfigSpec.BooleanValue CHECK_WORLD_BORDER;
+  public static final ModConfigSpec.BooleanValue BRUSHABLES_SELF_SUPPORT;
+  public static final ModConfigSpec.BooleanValue ITEM_FRAMES_SELF_SUPPORT;
+  // Whitelist/blacklist (loot table, modid, dimension)
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> DIMENSION_WHITELIST;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> DIMENSION_BLACKLIST;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> LOOT_TABLE_BLACKLIST;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> LOOT_MODID_BLACKLIST;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> MODID_DIMENSION_WHITELIST;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> MODID_DIMENSION_BLACKLIST;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> LOOT_TABLE_FORCED_WHITELIST;
+  // Decay
+  public static final ModConfigSpec.IntValue DECAY_VALUE;
+  public static final ModConfigSpec.BooleanValue DECAY_ALL;
+  public static final ModConfigSpec.BooleanValue PERFORM_DECAY_WHILE_TICKING;
+  public static final ModConfigSpec.BooleanValue START_DECAY_WHILE_TICKING;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> DECAY_MODIDS;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> DECAY_LOOT_TABLES;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> DECAY_DIMENSIONS;
+  public static final ModConfigSpec.BooleanValue REPLACE_WHEN_DECAYED;
+  // Refresh
+  public static final ModConfigSpec.IntValue REFRESH_VALUE;
+  public static final ModConfigSpec.BooleanValue REFRESH_ALL;
+  public static final ModConfigSpec.BooleanValue PERFORM_REFRESH_WHILE_TICKING;
+  public static final ModConfigSpec.BooleanValue START_REFRESH_WHILE_TICKING;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> REFRESH_MODIDS;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> REFRESH_LOOT_TABLES;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> REFRESH_DIMENSIONS;
+  public static final ModConfigSpec.BooleanValue POWER_COMPARATORS;
+  public static final ModConfigSpec.BooleanValue BLAST_RESISTANT;
+  public static final ModConfigSpec.BooleanValue BLAST_IMMUNE;
+  public static final ModConfigSpec.BooleanValue SHOULD_DROP_PLAYER_LOOT;
+  public static final ModConfigSpec.BooleanValue BREAK_TO_DROP_LOOT;
+  public static final ModConfigSpec.BooleanValue DISABLE_MESSAGE_STYLES;
+  public static final ModConfigSpec.BooleanValue TRAPPED_CUSTOM;
+  public static final ModConfigSpec.BooleanValue SHOULD_WARN_NO_LOOT_TABLE_AT_GENERATION;
+  public static final ModConfigSpec.IntValue TICK_DELAY;
+  public static final ModConfigSpec.BooleanValue TEAM_LOOT;
+  public static final ModConfigSpec.ConfigValue<String> PINNED_TEAM_RESOLVER;
+  // Item bans
+  public static final ModConfigSpec.BooleanValue RESPECT_ITEM_OBLITERATOR;
+  public static final ModConfigSpec.BooleanValue FILTER_ALL_LOOT;
+  public static final ModConfigSpec.BooleanValue SCRUB_SAVED_INVENTORIES;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> EXTRA_BANNED_ITEMS;
+  // Integrated loot
+  public static final ModConfigSpec.BooleanValue INTEGRATED_LOOT_ENABLED;
+  public static final ModConfigSpec.IntValue MODDED_ITEM_WEIGHT;
+  public static final ModConfigSpec.BooleanValue SKIP_EXISTING_ITEMS;
+  public static final ModConfigSpec.BooleanValue SKIP_MAP_ITEMS;
+  public static final ModConfigSpec.IntValue MAX_EXTRA_STACKS;
+  public static final ModConfigSpec.BooleanValue INTEGRATED_LOOT_DEBUG_LOG;
+  public static final ModConfigSpec.BooleanValue IMPORTED_LOOT_INTEGRATIONS_CONFIG;
+  // Client-only
+  public static final ModConfigSpec.BooleanValue VANILLA_TEXTURES;
+  public static final ModConfigSpec.BooleanValue UNOPENED_PARTICLES;
+  public static final ModConfigSpec.BooleanValue REFRESH_PARTICLES;
+  public static final ModConfigSpec.BooleanValue DECAY_PARTICLES;
+  public static final ModConfigSpec.BooleanValue TOASTS;
+  public static final ModConfigSpec.BooleanValue DISABLE_NOTIFICATIONS;
+  public static final ModConfigSpec.IntValue NOTIFICATION_DELAY;
+  private static final ModConfigSpec.Builder COMMON_BUILDER = new ModConfigSpec.Builder();
+  private static final ModConfigSpec.Builder CLIENT_BUILDER = new ModConfigSpec.Builder();
+  public static ModConfigSpec COMMON_CONFIG;
+  public static ModConfigSpec CLIENT_CONFIG;
+
+  // Caches
+  private static Set<String> DECAY_MODS = null;
+  private static Set<ResourceKey<LootTable>> DECAY_TABLES = null;
+  private static Set<String> REFRESH_MODS = null;
+  private static Set<ResourceKey<LootTable>> REFRESH_TABLES = null;
+  private static Set<ResourceKey<Level>> DIM_WHITELIST = null;
+  private static Set<String> MODID_DIM_WHITELIST = null;
+  private static Set<ResourceKey<Level>> DIM_BLACKLIST = null;
+  private static Set<String> MODID_DIM_BLACKLIST = null;
+  private static Set<ResourceKey<Level>> DECAY_DIMS = null;
+  private static Set<ResourceKey<Level>> REFRESH_DIMS = null;
+  private static Set<ResourceKey<LootTable>> LOOT_BLACKLIST = null;
+  private static Set<ResourceKey<LootTable>> LOOT_FORCED_WHITELIST = null;
+  private static Set<String> LOOT_MODIDS = null;
+  private static ResourceLocation PINNED_TEAM_RESOLVER_ID = null;
+
+  static {
+    COMMON_BUILDER.push("conversion").comment("configuration options for the conversion of chests");
+    DISABLE = COMMON_BUILDER.comment("if true, no chests will be converted").define("disable", false);
+    RANDOMISE_SEED = COMMON_BUILDER.comment("determine whether or not loot generated is the same for all players using the provided seed, or randomised per player")
+        .define("randomise_seed", true);
+    MAXIMUM_AGE = COMMON_BUILDER.comment("the maximum age for containers; entries above this age will be discarded [default: 60 * 20 * 15, fifteen minutes] [note: the value 6000 will be corrected to 18000. if you wish to use 6000, please use 6001 or 5999.]")
+        .defineInRange("max_age", 60 * 20 * 15, 0, Integer.MAX_VALUE);
+    BYPASS_SPAWN_PROTECTION = COMMON_BUILDER.comment("if true, accessing a Lootr container will bypass spawn protection")
+        .define("bypass_spawn_protection", true);
+    CONVERT_MINESHAFTS = COMMON_BUILDER.comment("whether or not mineshaft chest minecarts should be converted to standard loot chests")
+        .define("convert_mineshafts", true);
+    CONVERT_ELYTRAS_TO_CHESTS = COMMON_BUILDER.comment("whether or not the Elytra item frame should be converted into a standard loot chest with a guaranteed elytra")
+        .define("convert_elytras_to_chests", false);
+    CONVERT_ELYTRAS_TO_ITEM_FRAMES = COMMON_BUILDER.comment("whether or not the Elytra item frame should be converted into a Lootr item frame with an elytra inside")
+        .define("convert_elytras_to_item_frames", true);
+    CONVERT_ITEM_FRAMES = COMMON_BUILDER.comment("whether or not item frames with items in them generated by structures should be converted into Lootr item frames")
+        .define("convert_item_frames", true);
+    SHOULD_WARN_NO_LOOT_TABLE_AT_GENERATION = COMMON_BUILDER.comment("whether or not to output a warning to the log when a suitable block entity has no loot table and is skipped during conversion")
+        .define("skip_logging_no_loot_table_at_generation", true);
+    REPORT_UNRESOLVED_TABLES = COMMON_BUILDER.comment("lootr will automatically log all unresolved tables (i.e., for containers that have a loot table associated with them but, for whatever reason, the lookup for this table returns empty). setting this option to true additionally informs players when they open containers.")
+        .define("report_unresolved_tables", false);
+    CHECK_WORLD_BORDER = COMMON_BUILDER.comment("disregard chests and chunks that are outside of the world border; enable this option if you are using a world border and are suffering consistent TPS issues; if you change the world border, you will need to restart your client")
+        .define("check_world_border", false);
+    PERFORM_PIECEWISE_CHECK = COMMON_BUILDER.comment("checks structure pieces as well as structure starts when determining if a structure contains a position, more accurate but may cause lag (default true)")
+        .define("perform_piecewise_check", true);
+    TICK_DELAY = COMMON_BUILDER.comment("the default delay between ticks. the higher this value, the slower it takes for containers to determine they should refresh, decay, or start refreshing or decaying").defineInRange("tick_delay", 20, 0, Integer.MAX_VALUE);
+    COMMON_BUILDER.pop();
+    COMMON_BUILDER.push("team");
+    TEAM_LOOT = COMMON_BUILDER.comment("if true, instead of providing individual loot per player, loot will be assigned based on teams. by default, the entity's scoreboard team will be used. if the player is not in a team, their own uuid will be used instead. [default: false]").define("team_loot", false);
+    PINNED_TEAM_RESOLVER = COMMON_BUILDER.comment("the team resolver to use. by default, this is the standard minecraft scoreboard system. anyone not assigned to a scoreboard team will instead be considered in a team of just themselves. this value only needs to be set when using multiple team-based add-ons that provide teams with the same priority and you wish to specify which one you want to use. if blank or empty or the team resolver cannot be found, it will default to 'lootr:default' [default: blank]").define("pinned_team_resolver", "");
+    COMMON_BUILDER.pop();
+    COMMON_BUILDER.push("whitelist")
+        .comment("configuration for specific whitelisting and blacklisting of dimensions, loot tables and modids");
+    List<? extends String> empty = Collections.emptyList();
+    Predicate<Object> validator = o -> o instanceof String && ((String) o).contains(":");
+    Predicate<Object> modidValidator = o -> o instanceof String && !((String) o).contains(":");
+    DIMENSION_WHITELIST = COMMON_BUILDER.comment("list of dimensions (to the exclusion of all others) that loot chest should be replaced in (default: blank, allowing all dimensions, e.g., [\"minecraft:overworld\", \"minecraft:the_end\"])")
+        .defineListAllowEmpty("dimension_whitelist", empty, () -> "", validator);
+    DIMENSION_BLACKLIST = COMMON_BUILDER.comment("list of dimensions that loot chests should not be replaced in (default: blank, allowing all dimensions, format e.g., [\"minecraft:overworld\", \"minecraft:the_end\"])")
+        .defineListAllowEmpty("dimension_blacklist", empty, () -> "", validator);
+    MODID_DIMENSION_BLACKLIST = COMMON_BUILDER.comment("list of dimensions by modid that loot chests should not be replaced in (default: blank, allowing all modids, format e.g., [\"minecraft", "othermod\"])")
+        .defineListAllowEmpty("modid_dimension_blacklist", empty, () -> "", modidValidator);
+    MODID_DIMENSION_WHITELIST = COMMON_BUILDER.comment("list of dimensions by modid that loot chest should be replaced in (default: blank, allowing all modids, format e.g., [\"minecraft", "othermod\"])")
+        .defineListAllowEmpty("modid_dimension_whitelist", empty, () -> "", modidValidator);
+    LOOT_TABLE_BLACKLIST = COMMON_BUILDER.comment("list of loot tables which shouldn't be converted (in the format of [\"modid:loot_table\", \"othermodid:other_loot_table\"])")
+        .defineListAllowEmpty("loot_table_blacklist", empty, () -> "", validator);
+    LOOT_TABLE_FORCED_WHITELIST = COMMON_BUILDER.comment("list of loot tables which will forcefully be converted even if they are included in the loot table blacklist or the problematic loot tables (format: see loot_table_blacklist)").defineListAllowEmpty("loot_table_forced_whitelist", empty, () -> "", validator);
+    LOOT_MODID_BLACKLIST = COMMON_BUILDER.comment("list of modids whose loot tables shouldn't be converted (in the format of [\"modid\", \"other_modid\"])")
+        .defineListAllowEmpty("loot_modid_blacklist", empty, () -> "", modidValidator);
+    COMMON_BUILDER.pop();
+    COMMON_BUILDER.push("breaking").comment("configuration options for breaking containers");
+    DISABLE_BREAK = COMMON_BUILDER.comment("prevent the destruction of Lootr chests except while sneaking in creative mode")
+        .define("disable_break", false);
+    ENABLE_BREAK = COMMON_BUILDER.comment("allow the destruction of Lootr chests regardless. overrides `disable_break`")
+        .define("enable_break", false);
+    ENABLE_FAKE_PLAYER_BREAK = COMMON_BUILDER.comment("allows fake players to destroy Lootr chests without having to sneak, overrides the `disable_break` option for fake players")
+        .define("enable_fake_player_break", false);
+    BLAST_RESISTANT = COMMON_BUILDER.comment("lootr chests cannot be destroyed by creeper or TNT explosions")
+        .define("blast_resistant", false);
+    BLAST_IMMUNE = COMMON_BUILDER.comment("lootr chests cannot be destroyed by any explosion")
+        .define("blast_immune", false);
+    BRUSHABLES_SELF_SUPPORT = COMMON_BUILDER.comment("lootr brushable blocks will not fall if the blocks under them are broken")
+        .define("brushables_self_support", false);
+    ITEM_FRAMES_SELF_SUPPORT = COMMON_BUILDER.comment("lootr item frames will not break if the blocks they are attached to are broken")
+        .define("item_frames_self_support", false);
+    SHOULD_DROP_PLAYER_LOOT = COMMON_BUILDER.comment("lootr chests will drop the contents of the player-specific inventory (generated when not generated) when broken")
+        .define("should_drop_player_loot", false);
+    BREAK_TO_DROP_LOOT = COMMON_BUILDER.comment("breaking a lootr chest (while not sneaking) will drop a player's loot but not destroy the block, simply marking it as opened")
+            .define("break_to_drop_loot", false);
+    COMMON_BUILDER.pop();
+    COMMON_BUILDER.push("power").comment("configuration options for comparators and redstone power");
+    POWER_COMPARATORS = COMMON_BUILDER.comment("when true, comparators on Lootr containers will give an output of 1; when false, they will give an output of 0")
+        .define("power_comparators", true);
+    TRAPPED_CUSTOM = COMMON_BUILDER.comment("when true, custom inventories will act like trapped chests when opened")
+        .define("trapped_custom", false);
+    COMMON_BUILDER.pop();
+    COMMON_BUILDER.push("notifications").comment("configuration options for notifications");
+    DISABLE_MESSAGE_STYLES = COMMON_BUILDER.comment("disables styling of breaking, decaying and refreshing messages sent to players")
+        .define("disable_message_styles", false);
+    COMMON_BUILDER.pop();
+    COMMON_BUILDER.push("decay").comment("configuration options for decaying containers");
+    DECAY_VALUE = COMMON_BUILDER.comment("how long (in ticks) a decaying loot containers should take to decay (default 5 minutes = 5 * 60 * 20)")
+        .defineInRange("decay_value", 5 * 60 * 20, 0, Integer.MAX_VALUE);
+    DECAY_LOOT_TABLES = COMMON_BUILDER.comment("list of loot tables which will decay (default blank, meaning no chests decay, in the format of (in the format of [\"modid:loot_table\", \"othermodid:other_loot_table\"])")
+        .defineListAllowEmpty("decay_loot_tables", empty, () -> "", validator);
+    DECAY_MODIDS = COMMON_BUILDER.comment("list of mod IDs whose loot tables will decay (default blank, meaning no chests decay, in the format [\"modid\", \"othermodid\"])")
+        .defineListAllowEmpty("decay_modids", empty, () -> "", o -> o instanceof String);
+    DECAY_DIMENSIONS = COMMON_BUILDER.comment("list of dimensions where loot chests should automatically decay (default: blank, e.g., [\"minecraft:the_nether\", \"minecraft:the_end\"])")
+        .defineListAllowEmpty("decay_dimensions", empty, () -> "", validator);
+    REPLACE_WHEN_DECAYED = COMMON_BUILDER.comment("when true, decayed containers will be replaced with their equivalent vanilla block instead of being removed")
+        .define("replace_when_decayed", false);
+    PERFORM_DECAY_WHILE_TICKING = COMMON_BUILDER.comment("containers that have already been marked as decaying will be decayed during level tick as well as when next trapped")
+        .define("perform_decay_while_ticking", true);
+    START_DECAY_WHILE_TICKING = COMMON_BUILDER.comment("containers that have not yet been marked as decaying will be marked for decay during level tick as well as when next trapped")
+        .define("start_decay_while_ticking", false);
+    DECAY_ALL = COMMON_BUILDER.comment("overriding decay_loot_tables, decay_modids and decay_dimensions: all chests will decay after being trapped for the first time")
+        .define("decay_all", false);
+    COMMON_BUILDER.pop();
+    COMMON_BUILDER.push("refresh").comment("configuration options for refreshing containers");
+    REFRESH_VALUE = COMMON_BUILDER.comment("how long (in ticks) a refreshing loot containers should take to refresh their contents (default 20 minutes = 20 * 60 * 20)")
+        .defineInRange("refresh_value", 20 * 60 * 20, 0, Integer.MAX_VALUE);
+    REFRESH_LOOT_TABLES = COMMON_BUILDER.comment("list of loot tables which will refresh (default blank, meaning no chests refresh, in the format of [\"modid:loot_table\", \"othermodid:loot_table\"])")
+        .defineListAllowEmpty("refresh_loot_tables", empty, () -> "", validator);
+    REFRESH_MODIDS = COMMON_BUILDER.comment("list of mod IDs whose loot tables will refresh (default blank, meaning no chests refresh, in the format of [\"modid\", \"othermodid\"])")
+        .defineListAllowEmpty("refresh_modids", empty, () -> "", o -> o instanceof String);
+    REFRESH_DIMENSIONS = COMMON_BUILDER.comment("list of dimensions where loot chests should automatically refresh (default: blank, e.g., [\"minecraft:overworld\", \"othermod:otherdimension\"])")
+        .defineListAllowEmpty("refresh_dimensions", empty, () -> "", validator);
+    PERFORM_REFRESH_WHILE_TICKING = COMMON_BUILDER.comment("containers that have already been marked as refreshing will be refreshed during level tick as well as when next trapped")
+        .define("perform_refresh_while_ticking", true);
+    START_REFRESH_WHILE_TICKING = COMMON_BUILDER.comment("containers that have not yet been marked as refreshing will be marked for refresh during level tick as well as when next trapped")
+        .define("start_refresh_while_ticking", true);
+    REFRESH_ALL = COMMON_BUILDER.comment("overriding refresh_loot_tables, refresh_modids and refresh_dimensions: all chests will refresh after being trapped for the first time")
+        .define("refresh_all", false);
+    COMMON_BUILDER.pop();
+    COMMON_BUILDER.comment("configuration options for items that must not appear in loot").push("item_bans");
+    RESPECT_ITEM_OBLITERATOR = COMMON_BUILDER.comment("treat items disabled by the mod Item Obliterator (if installed) as banned")
+        .define("respect_item_obliterator", true);
+    FILTER_ALL_LOOT = COMMON_BUILDER.comment("remove banned items from every loot table roll; if false, only from Lootr's own containers")
+        .define("filter_all_loot", true);
+    SCRUB_SAVED_INVENTORIES = COMMON_BUILDER.comment("remove banned items from already saved per-player inventories when they are accessed (permanent)")
+        .define("scrub_saved_inventories", true);
+    EXTRA_BANNED_ITEMS = COMMON_BUILDER.comment("additional banned items: item ids or item tags (in the format of [\"modid:item\", \"#modid:tag\"])")
+        .defineListAllowEmpty("extra_banned_items", empty, () -> "", o -> o instanceof String);
+    COMMON_BUILDER.pop();
+    COMMON_BUILDER.comment("configuration options for adding loot from other loot tables to containers").push("integrated_loot");
+    INTEGRATED_LOOT_ENABLED = COMMON_BUILDER.comment("add a few stacks from other loot tables to the container loot tables selected by data pack rules")
+        .define("enabled", true);
+    MODDED_ITEM_WEIGHT = COMMON_BUILDER.comment("draw weight of items from other mods; vanilla items weigh 1")
+        .defineInRange("modded_item_weight", IntegratedLootSettings.DEFAULT.moddedItemWeight(), IntegratedLootSettings.MIN_MODDED_ITEM_WEIGHT, IntegratedLootSettings.MAX_MODDED_ITEM_WEIGHT);
+    SKIP_EXISTING_ITEMS = COMMON_BUILDER.comment("do not add an item the container already yields")
+        .define("skip_existing_items", true);
+    SKIP_MAP_ITEMS = COMMON_BUILDER.comment("do not create explorer maps (structure searches) for added loot")
+        .define("skip_map_items", true);
+    MAX_EXTRA_STACKS = COMMON_BUILDER.comment("upper limit of added stacks per container, whatever a rule asks for")
+        .defineInRange("max_extra_stacks", IntegratedLootSettings.DEFAULT.maxExtraStacks(), IntegratedLootSettings.MIN_EXTRA_STACKS, IntegratedLootSettings.MAX_EXTRA_STACKS);
+    INTEGRATED_LOOT_DEBUG_LOG = COMMON_BUILDER.comment("log one line per extended loot roll")
+        .define("debug_log", false);
+    IMPORTED_LOOT_INTEGRATIONS_CONFIG = COMMON_BUILDER.comment("set once the settings of `lootintegrations.json` have been taken over; set to false to take them over again at the next start")
+        .define("imported_loot_integrations_config", false);
+    COMMON_BUILDER.pop();
+    COMMON_CONFIG = COMMON_BUILDER.build();
+    CLIENT_BUILDER.push("textures").comment("configuration options for textures");
+    VANILLA_TEXTURES = CLIENT_BUILDER.comment("set to true to use vanilla textures instead of Lootr special textures. Note: this will prevent previously opened chests from rendering differently")
+        .define("vanilla_textures", false);
+    CLIENT_BUILDER.pop();
+    CLIENT_BUILDER.push("particles").comment("configuration options for particles");
+    UNOPENED_PARTICLES = CLIENT_BUILDER.comment("set to true to enable 'unopened particles' to spawn from containers that the player has not yet opened").define("unopened_particles", true);
+    REFRESH_PARTICLES = CLIENT_BUILDER.comment("set to true to enable 'refresh particles' to spawn from containers that the player has previously opened which are set to refresh").define("refresh_particles", true);
+    DECAY_PARTICLES = CLIENT_BUILDER.comment("set to true to enable 'decay particles' to spawn from containers that are going to decay").define("decay_particles", true);
+    CLIENT_BUILDER.pop();
+    CLIENT_BUILDER.push("notifications").comment("configuration options for notifications");
+    TOASTS = CLIENT_BUILDER.comment("set to true to enable toast notifications of decay and refresh, obeying message notification settings; set to false to instead use on-screen message").define("display_toasts", true);
+    DISABLE_NOTIFICATIONS = CLIENT_BUILDER.comment("prevent notifications of decaying or refreshed chests")
+        .define("disable_notifications", false);
+    NOTIFICATION_DELAY = CLIENT_BUILDER.comment("maximum time (in ticks) remaining on a chest before a notification for refreshing or decaying is sent to a player (default 30 seconds, -1 for no delay)")
+        .defineInRange("notification_delay", 30 * 20, -1, Integer.MAX_VALUE);
+    CLIENT_BUILDER.pop();
+    CLIENT_CONFIG = CLIENT_BUILDER.build();
+  }
+
+  @SubscribeEvent
+  public static void reloadConfig(ModConfigEvent.Reloading event) {
+    configEvent(event);
+  }
+
+  @SubscribeEvent
+  public static void loadConfig(ModConfigEvent.Loading event) {
+    if (event.getConfig().getType() == ModConfig.Type.COMMON) {
+      importLootIntegrationsConfig();
+    }
+    configEvent(event);
+  }
+
+  public static void configEvent(ModConfigEvent event) {
+    if (event.getConfig().getType() == ModConfig.Type.COMMON) {
+      LootrServiceRegistry.clearReplacements();
+      MODID_DIM_WHITELIST = null;
+      MODID_DIM_BLACKLIST = null;
+      DIM_WHITELIST = null;
+      DIM_BLACKLIST = null;
+      LOOT_BLACKLIST = null;
+      LOOT_FORCED_WHITELIST = null;
+      DECAY_MODS = null;
+      DECAY_TABLES = null;
+      DECAY_DIMS = null;
+      LOOT_MODIDS = null;
+      REFRESH_DIMS = null;
+      REFRESH_MODS = null;
+      REFRESH_TABLES = null;
+      PINNED_TEAM_RESOLVER_ID = null;
+      ItemBans.applySettings(itemBanSettings());
+      IntegratedLoot.applySettings(integratedLootSettings());
+    } else if (event.getConfig().getType() == ModConfig.Type.CLIENT) {
+      LootrAPI.refreshSections();
+    }
+  }
+
+  // Takes over the settings of `lootintegrations.json` once; the flag in our own configuration remembers it.
+  // Saving announces a reload of the configuration, which applies the new values.
+  private static void importLootIntegrationsConfig() {
+    if (IMPORTED_LOOT_INTEGRATIONS_CONFIG.get()) {
+      return;
+    }
+    Optional<LootIntegrationsImport.Result> result = LootIntegrationsImport.read(PlatformAPI.getConfigDirectory(), integratedLootSettings());
+    if (result.isEmpty()) {
+      return;
+    }
+    IntegratedLootSettings settings = result.get().settings();
+    MODDED_ITEM_WEIGHT.set(settings.moddedItemWeight());
+    SKIP_EXISTING_ITEMS.set(settings.skipExistingItems());
+    SKIP_MAP_ITEMS.set(settings.skipMapItems());
+    INTEGRATED_LOOT_DEBUG_LOG.set(settings.debugLog());
+    IMPORTED_LOOT_INTEGRATIONS_CONFIG.set(true);
+    COMMON_CONFIG.save();
+    LootrAPI.LOG.info("Integrated loot: took over the settings of {} once: {}.", LootIntegrationsImport.FILE_NAME, result.get().takenOver().isEmpty() ? "it sets nothing that applies" : String.join(", ", result.get().takenOver()));
+  }
+
+  // Snapshot of the `item_bans` section for common code (see ItemBans#applySettings).
+  public static ItemBanSettings itemBanSettings() {
+    return new ItemBanSettings(RESPECT_ITEM_OBLITERATOR.get(), FILTER_ALL_LOOT.get(), SCRUB_SAVED_INVENTORIES.get(), List.copyOf(EXTRA_BANNED_ITEMS.get()));
+  }
+
+  // Snapshot of the `integrated_loot` section for common code (see IntegratedLoot#applySettings).
+  public static IntegratedLootSettings integratedLootSettings() {
+    return new IntegratedLootSettings(INTEGRATED_LOOT_ENABLED.get(), MODDED_ITEM_WEIGHT.get(), SKIP_EXISTING_ITEMS.get(), SKIP_MAP_ITEMS.get(), MAX_EXTRA_STACKS.get(), INTEGRATED_LOOT_DEBUG_LOG.get());
+  }
+
+  public static Set<ResourceKey<Level>> getDimensionWhitelist() {
+    if (DIM_WHITELIST == null) {
+      DIM_WHITELIST = validateDimensions(DIMENSION_WHITELIST.get(), "dimension_whitelist");
+    }
+    return DIM_WHITELIST;
+  }
+
+  public static Set<String> getDimensionModidWhitelist() {
+    if (MODID_DIM_WHITELIST == null) {
+      MODID_DIM_WHITELIST = validateStringList(MODID_DIMENSION_WHITELIST.get(), "modid_dimension_whitelist");
+    }
+    return MODID_DIM_WHITELIST;
+  }
+
+  public static Set<ResourceKey<Level>> getDimensionBlacklist() {
+    if (DIM_BLACKLIST == null) {
+      DIM_BLACKLIST = validateDimensions(DIMENSION_BLACKLIST.get(), "dimension_blacklist");
+    }
+    return DIM_BLACKLIST;
+  }
+
+  public static Set<String> getDimensionModidBlacklist() {
+    if (MODID_DIM_BLACKLIST == null) {
+      MODID_DIM_BLACKLIST = validateStringList(MODID_DIMENSION_BLACKLIST.get(), "modid_dimension_blacklist");
+    }
+    return MODID_DIM_BLACKLIST;
+  }
+
+  public static Set<ResourceKey<Level>> getDecayDimensions() {
+    if (DECAY_DIMS == null) {
+      DECAY_DIMS = validateDimensions(DECAY_DIMENSIONS.get(), "decay_dimensions");
+    }
+    return DECAY_DIMS;
+  }
+
+  public static Set<ResourceKey<Level>> getRefreshDimensions() {
+    if (REFRESH_DIMS == null) {
+      REFRESH_DIMS = validateDimensions(REFRESH_DIMENSIONS.get(), "refresh_dimensions");
+    }
+    return REFRESH_DIMS;
+  }
+
+  public static Set<ResourceKey<LootTable>> getLootForcedWhitelist () {
+    if (LOOT_FORCED_WHITELIST == null) {
+      LOOT_FORCED_WHITELIST = validateResourceKeyList(LOOT_TABLE_FORCED_WHITELIST.get(), "loot_table_forced_whitelist", o -> ResourceKey.create(Registries.LOOT_TABLE, o));
+    }
+
+    return LOOT_FORCED_WHITELIST;
+  }
+
+  public static Set<ResourceKey<LootTable>> getLootBlacklist() {
+    if (LOOT_BLACKLIST == null) {
+      LOOT_BLACKLIST = validateResourceKeyList(LOOT_TABLE_BLACKLIST.get(), "loot_table_blacklist", o -> ResourceKey.create(Registries.LOOT_TABLE, o));
+      // Fixes for #79 and #74
+      LOOT_BLACKLIST.addAll(LootrAPI.gatherProblematicLootTables());
+      LOOT_BLACKLIST.removeAll(getLootForcedWhitelist());
+    }
+    return LOOT_BLACKLIST;
+  }
+
+  public static Set<String> getLootModids() {
+    if (LOOT_MODIDS == null) {
+      LOOT_MODIDS = validateStringList(LOOT_MODID_BLACKLIST.get(), "loot_modid_blacklist");
+    }
+    return LOOT_MODIDS;
+  }
+
+  public static boolean isLootTableBlacklisted(ResourceKey<LootTable> table) {
+    if (!getLootBlacklist().isEmpty() && getLootBlacklist().contains(table)) {
+      return true;
+    }
+
+    return !getLootModids().isEmpty() && getLootModids().contains(table.location().getNamespace());
+  }
+
+  public static Set<ResourceKey<LootTable>> getDecayingTables() {
+    if (DECAY_TABLES == null) {
+      DECAY_TABLES = validateResourceKeyList(DECAY_LOOT_TABLES.get(), "decay_loot_tables", o -> ResourceKey.create(Registries.LOOT_TABLE, o));
+    }
+    return DECAY_TABLES;
+  }
+
+  public static Set<String> getDecayMods() {
+    if (DECAY_MODS == null) {
+      DECAY_MODS = validateStringList(DECAY_MODIDS.get(), "decay_modids");
+    }
+    return DECAY_MODS;
+  }
+
+  public static Set<ResourceKey<LootTable>> getRefreshingTables() {
+    if (REFRESH_TABLES == null) {
+      REFRESH_TABLES = validateResourceKeyList(REFRESH_LOOT_TABLES.get(), "refreshing_loot_tables", o -> ResourceKey.create(Registries.LOOT_TABLE, o));
+    }
+    return REFRESH_TABLES;
+  }
+
+  public static Set<String> getRefreshMods() {
+    if (REFRESH_MODS == null) {
+      REFRESH_MODS = validateStringList(REFRESH_MODIDS.get(), "refresh_modids");
+    }
+    return REFRESH_MODS;
+  }
+
+  public static boolean isDimensionBlocked(ResourceKey<Level> key) {
+    if (!getDimensionModidWhitelist().isEmpty() && !getDimensionModidWhitelist().contains(key.location()
+        .getNamespace()) || getDimensionModidBlacklist().contains(key.location().getNamespace())) {
+      return true;
+    }
+
+    return (!getDimensionWhitelist().isEmpty() && !getDimensionWhitelist().contains(key)) || getDimensionBlacklist().contains(key);
+  }
+
+  public static boolean isDimensionDecaying(ResourceKey<Level> key) {
+    return !getDecayDimensions().isEmpty() && getDecayDimensions().contains(key);
+  }
+
+  public static boolean isDimensionRefreshing(ResourceKey<Level> key) {
+    return !getRefreshDimensions().isEmpty() && getRefreshDimensions().contains(key);
+  }
+
+  public static boolean isDecaying(ILootrInfoProvider provider) {
+    if (DECAY_ALL.get()) {
+      return true;
+    }
+    if (provider.getInfoLootTable() != null) {
+      if (!getDecayingTables().isEmpty() && getDecayingTables().contains(provider.getInfoLootTable())) {
+        return true;
+      }
+      if (!getDecayMods().isEmpty() && getDecayMods().contains(provider.getInfoLootTable().location().getNamespace())) {
+        return true;
+      }
+    }
+    // Structures are known to a server level only; the level can be missing (unknown dimension) or a client level.
+    if (provider.getInfoLevel() instanceof ServerLevel level && LootrAPI.isTaggedStructurePresent(level, new ChunkPos(provider.getInfoPos()), LootrTags.Structure.DECAY_STRUCTURES, provider.getInfoPos())) {
+      return true;
+    }
+    return isDimensionDecaying(provider.getInfoDimension());
+  }
+
+  public static boolean isRefreshing(ILootrInfoProvider provider) {
+    if (REFRESH_ALL.get()) {
+      return true;
+    }
+    if (provider.getInfoLootTable() != null) {
+      if (!getRefreshingTables().isEmpty() && getRefreshingTables().contains(provider.getInfoLootTable())) {
+        return true;
+      }
+      if (!getRefreshMods().isEmpty() && getRefreshMods().contains(provider.getInfoLootTable().location()
+          .getNamespace())) {
+        return true;
+      }
+    }
+    if (provider.getInfoLevel() instanceof ServerLevel level && LootrAPI.isTaggedStructurePresent(level, new ChunkPos(provider.getInfoPos()), LootrTags.Structure.REFRESH_STRUCTURES, provider.getInfoPos())) {
+      return true;
+    }
+    return isDimensionRefreshing(provider.getInfoDimension());
+  }
+
+
+  public static boolean shouldNotify(int remaining) {
+    int delay = NOTIFICATION_DELAY.get();
+    return !DISABLE_NOTIFICATIONS.get() && (delay == -1 || remaining <= delay);
+  }
+
+  public static ResourceLocation getPinnedTeamResolverInternal() {
+    if (PINNED_TEAM_RESOLVER_ID == null) {
+      String team = PINNED_TEAM_RESOLVER.get();
+      if (!team.isEmpty()) {
+        PINNED_TEAM_RESOLVER_ID = ResourceLocation.tryParse(PINNED_TEAM_RESOLVER.get());
+      }
+      if (PINNED_TEAM_RESOLVER_ID == null) {
+        PINNED_TEAM_RESOLVER_ID = LootrAPI.DEFAULT_TEAM_RESOLVER;
+      }
+    }
+
+    return PINNED_TEAM_RESOLVER_ID;
+  }
+
+  public static ResourceLocation getPinnedTeamResolver () {
+    return getPinnedTeamResolverInternal();
+  }
+
+  public static boolean isVanillaTextures() {
+    return VANILLA_TEXTURES.get();
+  }
+
+  public static boolean shouldPerformPiecewiseCheck() {
+    return PERFORM_PIECEWISE_CHECK.get();
+  }
+
+  public static SyncedConfig getSyncedConfig () {
+    return new SyncedConfig(
+        BYPASS_SPAWN_PROTECTION.get(),
+        DISABLE_BREAK.get(),
+        ENABLE_BREAK.get(),
+        TEAM_LOOT.get(),
+        getPinnedTeamResolverInternal()
+    );
+  }
+}

@@ -1,0 +1,50 @@
+modLoader="javafml"
+loaderVersion="${neoforge_loader_version_range}"
+license="${mod_license}"
+issueTrackerURL="${issues_url}"
+
+[[mods]]
+modId="${mod_id}"
+version="${version}"
+displayName="${mod_name}"
+displayURL="${homepage_url}"
+logoFile="icon.png"
+authors="${mod_authors}"
+credits="Noobanidus (original Lootr), ZestyBlaze (original Lootr), embeddedt (original Lootr)"
+description='''${mod_description}'''
+
+[[mixins]]
+config="lootr-common.mixins.json"
+
+[[mixins]]
+config="lootr-neoforge.mixins.json"
+
+# Only applied when Digsite Workshop is installed.
+[[mixins]]
+config="lootr-neoforge-digsite_workshop.mixins.json"
+requiredMods=["digsite_workshop"]
+
+[[accessTransformers]]
+file="META-INF/accesstransformer.cfg"
+
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="[${neoforge_version_range_min},)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+# Loot Integrations does the same job as the integrated loot of this mod; both together would add loot twice.
+[[dependencies.${mod_id}]]
+modId="lootintegrations"
+type="incompatible"
+reason="Lootr Remastered has loot integration built in, remove Loot Integrations"
+ordering="NONE"
+side="BOTH"

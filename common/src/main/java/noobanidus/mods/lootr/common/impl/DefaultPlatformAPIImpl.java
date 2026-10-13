@@ -3,10 +3,13 @@ package noobanidus.mods.lootr.common.impl;
 import com.mojang.datafixers.util.Pair;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
@@ -20,6 +23,22 @@ import noobanidus.mods.lootr.common.data.DataStorage;
 import java.util.List;
 
 public abstract class DefaultPlatformAPIImpl implements IPlatformAPI {
+  /**
+   * The client may only ask about blocks it can have loaded: in its own dimension, within its view distance, and in a
+   * chunk the server has loaded. {@code Level#isLoaded} does not load the chunk, {@code Level#getBlockEntity} would.
+   */
+  public static boolean mayRequestUpdate(ServerPlayer player, ServerLevel level, BlockPos pos, int viewDistance) {
+    if (player.level() != level) {
+      return false;
+    }
+    ChunkPos chunk = new ChunkPos(pos);
+    ChunkPos playerChunk = player.chunkPosition();
+    if (Math.max(Math.abs(chunk.x - playerChunk.x), Math.abs(chunk.z - playerChunk.z)) > viewDistance + 1) {
+      return false;
+    }
+    return level.isLoaded(pos);
+  }
+
   @Override
   public boolean shouldDoInitialSave() {
     return false;

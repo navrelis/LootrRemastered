@@ -8,6 +8,7 @@ import org.jetbrains.annotations.VisibleForTesting;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -20,7 +21,12 @@ public final class ObliteratorBanSource implements ItemBanSource {
   public static final String MOD_ID = "item_obliterator";
   public static final String NAME = MOD_ID;
 
-  private static final String UTILS_CLASS = "elocindev.item_obliterator.fabric_quilt.util.Utils";
+  // Item Obliterator names the class after the loader it was built for (Fabric/Quilt, NeoForge, Forge).
+  private static final List<String> UTILS_CLASSES = List.of(
+      "elocindev.item_obliterator.fabric_quilt.util.Utils",
+      "elocindev.item_obliterator.neoforge.utils.Utils",
+      "elocindev.item_obliterator.forge.utils.Utils"
+  );
   private static final String IS_DISABLED = "isDisabled";
 
   private final MethodHandle isDisabled;
@@ -42,7 +48,25 @@ public final class ObliteratorBanSource implements ItemBanSource {
       LootrAPI.LOG.warn("Unable to determine whether Item Obliterator is installed; its item bans will not be applied to Lootr loot.", t);
       return Optional.empty();
     }
-    return resolve(UTILS_CLASS, IS_DISABLED);
+    for (String className : UTILS_CLASSES) {
+      if (exists(className)) {
+        return resolve(className, IS_DISABLED);
+      }
+    }
+    LootrAPI.LOG.warn("Item Obliterator is installed but none of its classes {} was found; its item bans will not be applied to Lootr loot.", UTILS_CLASSES);
+    return Optional.empty();
+  }
+
+  private static boolean exists(String className) {
+    try {
+      Class.forName(className, false, ObliteratorBanSource.class.getClassLoader());
+      return true;
+    } catch (ClassNotFoundException e) {
+      return false;
+    } catch (Throwable t) {
+      // The class is there but cannot be loaded; resolving it reports why.
+      return true;
+    }
   }
 
   /**

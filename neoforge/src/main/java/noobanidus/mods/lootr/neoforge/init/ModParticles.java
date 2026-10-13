@@ -1,0 +1,22 @@
+package noobanidus.mods.lootr.neoforge.init;
+
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.core.registries.Registries;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import noobanidus.mods.lootr.common.api.LootrAPI;
+import noobanidus.mods.lootr.common.api.LootrConstants;
+import noobanidus.mods.lootr.common.particle.ParticleColorOption;
+
+public class ModParticles {
+  private static final DeferredRegister<ParticleType<?>> PARTICLES = DeferredRegister.create(Registries.PARTICLE_TYPE, LootrAPI.MODID);
+
+  public static final DeferredHolder<ParticleType<?>, ParticleType<ParticleColorOption>> UNOPENED_PARTICLE = PARTICLES.register(LootrConstants.UNOPENED_PARTICLE.getPath(), () -> ParticleColorOption.create(false));
+  public static final DeferredHolder<ParticleType<?>, ParticleType<ParticleColorOption>> REFRESH_PARTICLE = PARTICLES.register(LootrConstants.REFRESH_PARTICLE.getPath(), () -> ParticleColorOption.create(false));
+
+  public static void register (IEventBus bus) {
+    PARTICLES.register(bus);
+  }
+}

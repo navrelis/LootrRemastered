@@ -34,6 +34,7 @@ import noobanidus.mods.lootr.common.api.data.inventory.ILootrInventory;
 import noobanidus.mods.lootr.common.api.filter.ILootrFilter;
 import noobanidus.mods.lootr.common.api.processor.ILootrBlockEntityProcessor;
 import noobanidus.mods.lootr.common.api.processor.ILootrEntityProcessor;
+import noobanidus.mods.lootr.common.cycle.CycleSettings;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -396,6 +397,12 @@ public interface ILootrAPI {
   boolean shouldDisplayDecayParticles();
 
   boolean shouldDisplayToasts();
+
+  // The parsed `personal_cycle` section (per-player refresh and decay). The default keeps the feature off so that
+  // existing implementations of the interface keep working.
+  default CycleSettings getPersonalCycleSettings() {
+    return CycleSettings.DISABLED;
+  }
 }
 
 

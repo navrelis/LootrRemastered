@@ -58,6 +58,12 @@ public interface TestPlatform {
   void setTickDelay(int value);
 
   /**
+   * Sets the options of the `personal_cycle` section (read back through `LootrAPI.getPersonalCycleSettings`) and drops
+   * the parsed copy, so that the next read sees them.
+   */
+  void setPersonalCycle(boolean enabled, double refreshIntervalHours, int refreshCount, boolean decayAfterLastRefresh, List<String> excludedLootTables, List<String> excludedDimensions, List<String> overrides);
+
+  /**
    * The sync data that is sent to a player after a team change: the ids of the opened and of the closed entities.
    * The loader's platform implementation builds it with a protected method.
    */

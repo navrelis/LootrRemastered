@@ -73,6 +73,19 @@ public class FabricTestPlatform implements TestPlatform, ModInitializer {
   }
 
   @Override
+  public void setPersonalCycle(boolean enabled, double refreshIntervalHours, int refreshCount, boolean decayAfterLastRefresh, List<String> excludedLootTables, List<String> excludedDimensions, List<String> overrides) {
+    ConfigManager.PersonalCycleOptions options = ConfigManager.get().personal_cycle;
+    options.enabled = enabled;
+    options.refresh_interval_hours = refreshIntervalHours;
+    options.refresh_count = refreshCount;
+    options.decay_after_last_refresh = decayAfterLastRefresh;
+    options.excluded_loot_tables = List.copyOf(excludedLootTables);
+    options.excluded_dimensions = List.copyOf(excludedDimensions);
+    options.overrides = List.copyOf(overrides);
+    ConfigManager.resetPersonalCycleSettings();
+  }
+
+  @Override
   public Pair<List<Integer>, List<Integer>> syncData(ServerPlayer player) {
     return new PlatformAPIImpl() {
       Pair<List<Integer>, List<Integer>> build() {

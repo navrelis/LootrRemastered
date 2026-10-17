@@ -94,6 +94,18 @@ public class NeoForgeTestPlatform implements TestPlatform {
   }
 
   @Override
+  public void setPersonalCycle(boolean enabled, double refreshIntervalHours, int refreshCount, boolean decayAfterLastRefresh, List<String> excludedLootTables, List<String> excludedDimensions, List<String> overrides) {
+    ConfigManager.PERSONAL_CYCLE_ENABLED.set(enabled);
+    ConfigManager.REFRESH_INTERVAL_HOURS.set(refreshIntervalHours);
+    ConfigManager.REFRESH_COUNT.set(refreshCount);
+    ConfigManager.DECAY_AFTER_LAST_REFRESH.set(decayAfterLastRefresh);
+    ConfigManager.PERSONAL_CYCLE_EXCLUDED_LOOT_TABLES.set(List.copyOf(excludedLootTables));
+    ConfigManager.PERSONAL_CYCLE_EXCLUDED_DIMENSIONS.set(List.copyOf(excludedDimensions));
+    ConfigManager.PERSONAL_CYCLE_OVERRIDES.set(List.copyOf(overrides));
+    ConfigManager.resetPersonalCycleSettings();
+  }
+
+  @Override
   public Pair<List<Integer>, List<Integer>> syncData(ServerPlayer player) {
     return new PlatformAPIImpl() {
       Pair<List<Integer>, List<Integer>> build() {

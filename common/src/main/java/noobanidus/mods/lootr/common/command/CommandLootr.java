@@ -687,6 +687,7 @@ public class CommandLootr {
     builder.then(VerifyCommand.build());
     builder.then(CheckCommand.build());
     builder.then(LocateCommand.build());
+    builder.then(noobanidus.mods.lootr.common.cycle.CycleCommand.build());
     return builder;
   }
 

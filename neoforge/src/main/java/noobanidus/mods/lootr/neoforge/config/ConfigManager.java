@@ -18,6 +18,7 @@ import noobanidus.mods.lootr.common.api.PlatformAPI;
 import noobanidus.mods.lootr.common.api.config.SyncedConfig;
 import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
 import noobanidus.mods.lootr.common.config.ConfigManagerBase;
+import noobanidus.mods.lootr.common.cycle.CycleSettings;
 import noobanidus.mods.lootr.common.impl.LootrServiceRegistry;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLoot;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLootSettings;
@@ -100,6 +101,14 @@ public class ConfigManager extends ConfigManagerBase {
   public static final ModConfigSpec.IntValue MAX_EXTRA_STACKS;
   public static final ModConfigSpec.BooleanValue INTEGRATED_LOOT_DEBUG_LOG;
   public static final ModConfigSpec.BooleanValue IMPORTED_LOOT_INTEGRATIONS_CONFIG;
+  // Personal cycle
+  public static final ModConfigSpec.BooleanValue PERSONAL_CYCLE_ENABLED;
+  public static final ModConfigSpec.DoubleValue REFRESH_INTERVAL_HOURS;
+  public static final ModConfigSpec.IntValue REFRESH_COUNT;
+  public static final ModConfigSpec.BooleanValue DECAY_AFTER_LAST_REFRESH;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> PERSONAL_CYCLE_EXCLUDED_LOOT_TABLES;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> PERSONAL_CYCLE_EXCLUDED_DIMENSIONS;
+  public static final ModConfigSpec.ConfigValue<List<? extends String>> PERSONAL_CYCLE_OVERRIDES;
   // Client-only
   public static final ModConfigSpec.BooleanValue VANILLA_TEXTURES;
   public static final ModConfigSpec.BooleanValue UNOPENED_PARTICLES;
@@ -128,6 +137,7 @@ public class ConfigManager extends ConfigManagerBase {
   private static Set<ResourceKey<LootTable>> LOOT_FORCED_WHITELIST = null;
   private static Set<String> LOOT_MODIDS = null;
   private static ResourceLocation PINNED_TEAM_RESOLVER_ID = null;
+  private static CycleSettings PERSONAL_CYCLE = null;
 
   static {
     COMMON_BUILDER.push("conversion").comment("configuration options for the conversion of chests");
@@ -269,6 +279,23 @@ public class ConfigManager extends ConfigManagerBase {
     IMPORTED_LOOT_INTEGRATIONS_CONFIG = COMMON_BUILDER.comment("set once the settings of `lootintegrations.json` have been taken over; set to false to take them over again at the next start")
         .define("imported_loot_integrations_config", false);
     COMMON_BUILDER.pop();
+    // The keys of this section are named in full (`.translation`): `enabled` is also a key of `integrated_loot`.
+    COMMON_BUILDER.comment("per-player refresh and decay by real time: each player's loot of a container is re-rolled at fixed intervals after their first opening, a number of times, then the container decays for that player only. The schedule is computed from the player's start and these values whenever they open, so changes (also by /reload) apply to running cycles. Containers that refresh or decay through the 'refresh' or 'decay' sections are not affected").push("personal_cycle");
+    PERSONAL_CYCLE_ENABLED = COMMON_BUILDER.comment("enable the personal cycle")
+        .translation("lootr.configuration.personal_cycle.enabled").define("enabled", CycleSettings.DEFAULT_ENABLED);
+    REFRESH_INTERVAL_HOURS = COMMON_BUILDER.comment("real hours between two re-rolls of a player's loot (server downtime counts); at least 0.0167, one minute")
+        .translation("lootr.configuration.personal_cycle.refresh_interval_hours").defineInRange("refresh_interval_hours", CycleSettings.DEFAULT_INTERVAL_HOURS, CycleSettings.MIN_INTERVAL_HOURS, CycleSettings.MAX_INTERVAL_HOURS);
+    REFRESH_COUNT = COMMON_BUILDER.comment("how often a player's loot is re-rolled; 0 never re-rolls (the container then decays after the first interval)")
+        .translation("lootr.configuration.personal_cycle.refresh_count").defineInRange("refresh_count", CycleSettings.DEFAULT_COUNT, CycleSettings.MIN_COUNT, CycleSettings.MAX_COUNT);
+    DECAY_AFTER_LAST_REFRESH = COMMON_BUILDER.comment("the container decays for the player one interval after the last re-roll; if false, the player keeps the last roll")
+        .translation("lootr.configuration.personal_cycle.decay_after_last_refresh").define("decay_after_last_refresh", CycleSettings.DEFAULT_DECAY);
+    PERSONAL_CYCLE_EXCLUDED_LOOT_TABLES = COMMON_BUILDER.comment("loot tables that keep their loot for good, as ids or \"namespace:*\" (e.g. [\"minecraft:chests/end_city_treasure\", \"othermod:*\"])")
+        .translation("lootr.configuration.personal_cycle.excluded_loot_tables").defineListAllowEmpty("excluded_loot_tables", empty, () -> "", validator);
+    PERSONAL_CYCLE_EXCLUDED_DIMENSIONS = COMMON_BUILDER.comment("dimensions where containers keep their loot for good, as ids or \"namespace:*\" (e.g. [\"minecraft:the_end\"])")
+        .translation("lootr.configuration.personal_cycle.excluded_dimensions").defineListAllowEmpty("excluded_dimensions", empty, () -> "", validator);
+    PERSONAL_CYCLE_OVERRIDES = COMMON_BUILDER.comment("schedules for single loot tables or mods: \"<loot table id or namespace:*>=<hours>,<count>,<decay true|false>\"; an exact id beats a namespace; malformed entries are logged and ignored (e.g. [\"minecraft:chests/simple_dungeon=24,5,true\", \"othermod:*=168,1,false\"])")
+        .translation("lootr.configuration.personal_cycle.overrides").defineListAllowEmpty("overrides", empty, () -> "", o -> o instanceof String);
+    COMMON_BUILDER.pop();
     COMMON_CONFIG = COMMON_BUILDER.build();
     CLIENT_BUILDER.push("textures").comment("configuration options for textures");
     VANILLA_TEXTURES = CLIENT_BUILDER.comment("set to true to use vanilla textures instead of Lootr special textures. Note: this will prevent previously opened chests from rendering differently")
@@ -319,6 +346,7 @@ public class ConfigManager extends ConfigManagerBase {
       REFRESH_MODS = null;
       REFRESH_TABLES = null;
       PINNED_TEAM_RESOLVER_ID = null;
+      PERSONAL_CYCLE = null;
       ItemBans.applySettings(itemBanSettings());
       IntegratedLoot.applySettings(integratedLootSettings());
     } else if (event.getConfig().getType() == ModConfig.Type.CLIENT) {
@@ -344,6 +372,20 @@ public class ConfigManager extends ConfigManagerBase {
     IMPORTED_LOOT_INTEGRATIONS_CONFIG.set(true);
     COMMON_CONFIG.save();
     LootrAPI.LOG.info("Integrated loot: took over the settings of {} once: {}.", LootIntegrationsImport.FILE_NAME, result.get().takenOver().isEmpty() ? "it sets nothing that applies" : String.join(", ", result.get().takenOver()));
+  }
+
+  // The parsed `personal_cycle` section, cached until the configuration is loaded again.
+  public static CycleSettings getPersonalCycleSettings() {
+    CycleSettings settings = PERSONAL_CYCLE;
+    if (settings == null) {
+      settings = CycleSettings.parse(PERSONAL_CYCLE_ENABLED.get(), REFRESH_INTERVAL_HOURS.get(), REFRESH_COUNT.get(), DECAY_AFTER_LAST_REFRESH.get(), PERSONAL_CYCLE_EXCLUDED_LOOT_TABLES.get(), PERSONAL_CYCLE_EXCLUDED_DIMENSIONS.get(), PERSONAL_CYCLE_OVERRIDES.get());
+      PERSONAL_CYCLE = settings;
+    }
+    return settings;
+  }
+
+  public static void resetPersonalCycleSettings() {
+    PERSONAL_CYCLE = null;
   }
 
   // Snapshot of the `item_bans` section for common code (see ItemBans#applySettings).

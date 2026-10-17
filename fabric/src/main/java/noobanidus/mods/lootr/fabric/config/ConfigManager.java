@@ -17,6 +17,7 @@ import noobanidus.mods.lootr.common.api.LootrTags;
 import noobanidus.mods.lootr.common.api.config.SyncedConfig;
 import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
 import noobanidus.mods.lootr.common.config.ConfigManagerBase;
+import noobanidus.mods.lootr.common.cycle.CycleSettings;
 import noobanidus.mods.lootr.common.impl.LootrServiceRegistry;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLootSettings;
 import noobanidus.mods.lootr.common.itemban.ItemBanSettings;
@@ -59,6 +60,8 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
   private static Set<ResourceKey<LootTable>> LOOT_TABLE_FORCED_WHITELIST = null;
   @ConfigEntry.Gui.Excluded
   private static Set<String> LOOT_MODIDS = null;
+  @ConfigEntry.Gui.Excluded
+  private static CycleSettings PERSONAL_CYCLE = null;
 
   @ConfigEntry.Gui.CollapsibleObject
   public Debug debug = new Debug();
@@ -84,6 +87,8 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
   public ItemBanOptions item_bans = new ItemBanOptions();
   @ConfigEntry.Gui.CollapsibleObject
   public IntegratedLootOptions integrated_loot = new IntegratedLootOptions();
+  @ConfigEntry.Gui.CollapsibleObject
+  public PersonalCycleOptions personal_cycle = new PersonalCycleOptions();
 
   public static void reset() {
     LootrServiceRegistry.clearReplacements();
@@ -101,6 +106,7 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     REFRESH_MODS = null;
     REFRESH_TABLES = null;
     PINNED_TEAM_RESOLVER = null;
+    PERSONAL_CYCLE = null;
     LootrAPI.refreshSections();
   }
 
@@ -332,6 +338,24 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     return new IntegratedLootSettings(options.enabled, options.modded_item_weight, options.skip_existing_items, options.skip_map_items, options.max_extra_stacks, options.debug_log);
   }
 
+  public static void resetPersonalCycleSettings() {
+    PERSONAL_CYCLE = null;
+  }
+
+  // The parsed `personal_cycle` section; a configuration file written before the section existed gets the defaults.
+  public static CycleSettings getPersonalCycleSettings() {
+    CycleSettings settings = PERSONAL_CYCLE;
+    if (settings == null) {
+      PersonalCycleOptions options = get().personal_cycle;
+      if (options == null) {
+        options = new PersonalCycleOptions();
+      }
+      settings = CycleSettings.parse(options.enabled, options.refresh_interval_hours, options.refresh_count, options.decay_after_last_refresh, options.excluded_loot_tables, options.excluded_dimensions, options.overrides);
+      PERSONAL_CYCLE = settings;
+    }
+    return settings;
+  }
+
   private SyncedConfig configSync () {
     return new SyncedConfig(
         conversion.bypass_spawn_protection,
@@ -459,5 +483,30 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     public boolean debug_log = false;
     // Set once the settings of `lootintegrations.json` have been taken over; set to false to take them over again.
     public boolean imported_loot_integrations_config = false;
+  }
+
+  // Per-player refresh and decay by real time. The schedule is computed from each player's start and these values
+  // whenever the player opens, so changes apply to cycles that are already running.
+  public static class PersonalCycleOptions {
+    @ConfigEntry.Gui.Tooltip
+    public boolean enabled = CycleSettings.DEFAULT_ENABLED;
+    // Real hours between two re-rolls of a player's loot; at least 0.0167 (one minute).
+    @ConfigEntry.Gui.Tooltip
+    public double refresh_interval_hours = CycleSettings.DEFAULT_INTERVAL_HOURS;
+    // How often a player's loot is re-rolled; 0 never re-rolls.
+    @ConfigEntry.Gui.Tooltip
+    public int refresh_count = CycleSettings.DEFAULT_COUNT;
+    // The container decays for the player one interval after the last re-roll.
+    @ConfigEntry.Gui.Tooltip
+    public boolean decay_after_last_refresh = CycleSettings.DEFAULT_DECAY;
+    // Loot table ids or "namespace:*" that keep their loot for good.
+    @ConfigEntry.Gui.Tooltip
+    public List<String> excluded_loot_tables = List.of();
+    // Dimension ids (or "namespace:*") where containers keep their loot for good.
+    @ConfigEntry.Gui.Tooltip
+    public List<String> excluded_dimensions = List.of();
+    // "<loot table id or namespace:*>=<hours>,<count>,<decay true|false>"; an exact id beats a namespace.
+    @ConfigEntry.Gui.Tooltip
+    public List<String> overrides = List.of();
   }
 }

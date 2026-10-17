@@ -43,6 +43,7 @@ import noobanidus.mods.lootr.common.api.filter.ILootrFilter;
 import noobanidus.mods.lootr.common.api.processor.ILootrBlockEntityProcessor;
 import noobanidus.mods.lootr.common.api.processor.ILootrEntityProcessor;
 import noobanidus.mods.lootr.common.api.registry.LootrRegistry;
+import noobanidus.mods.lootr.common.cycle.CycleSettings;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinShulkerBoxMenu;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -756,5 +757,9 @@ public class LootrAPI {
 
   public static boolean shouldDisplayToasts () {
     return INSTANCE.shouldDisplayToasts();
+  }
+
+  public static CycleSettings getPersonalCycleSettings() {
+    return INSTANCE.getPersonalCycleSettings();
   }
 }

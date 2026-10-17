@@ -3,6 +3,7 @@
 ## 2.1.0
 
 - Build restructured: one branch per Minecraft version, one standalone Gradle build per loader.
+- New commands `/lootr check [<pos>]`, `/lootr locate table <loot_table> [<radius>]` and `/lootr locate structure <structure> [<radius>]`: say what is the matter with a container (loot table missing, empty or fine, integrated loot, structure, openers) and find containers by loot table or inside a structure. Chunks that are not loaded are read only if they are already generated; none is generated.
 
 ## 2.0.0 (Lootr Remastered, Fabric 1.21.1)
 

@@ -17,7 +17,8 @@
       "noobanidus.mods.lootr.gametest.LootrIntegratedLootTests",
       "noobanidus.mods.lootr.gametest.LootrCoreTests",
       "noobanidus.mods.lootr.gametest.LootrVerifyTests",
-      "noobanidus.mods.lootr.gametest.LootrPerformanceFixTests"
+      "noobanidus.mods.lootr.gametest.LootrPerformanceFixTests",
+      "noobanidus.mods.lootr.gametest.LootrLocateTests"
     ]
   },
   "mixins": [

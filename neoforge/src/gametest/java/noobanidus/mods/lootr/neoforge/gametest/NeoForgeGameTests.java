@@ -12,6 +12,7 @@ import noobanidus.mods.lootr.gametest.LootrCoreTests;
 import noobanidus.mods.lootr.gametest.LootrDefectFixTests;
 import noobanidus.mods.lootr.gametest.LootrIntegratedLootTests;
 import noobanidus.mods.lootr.gametest.LootrItemBanTests;
+import noobanidus.mods.lootr.gametest.LootrLocateTests;
 import noobanidus.mods.lootr.gametest.LootrPerformanceFixTests;
 import noobanidus.mods.lootr.gametest.LootrSmokeTests;
 import noobanidus.mods.lootr.gametest.LootrVerifyTests;
@@ -43,7 +44,8 @@ public final class NeoForgeGameTests {
       LootrIntegratedLootTests.class,
       LootrCoreTests.class,
       LootrVerifyTests.class,
-      LootrPerformanceFixTests.class
+      LootrPerformanceFixTests.class,
+      LootrLocateTests.class
   );
 
   private NeoForgeGameTests() {

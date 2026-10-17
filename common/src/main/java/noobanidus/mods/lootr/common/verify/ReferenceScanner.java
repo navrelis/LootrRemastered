@@ -9,6 +9,7 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Finds loot table ids in a structure template and in a worldgen JSON file. Both are walked generically and
@@ -17,6 +18,7 @@ import java.util.Map;
  */
 final class ReferenceScanner {
   private static final String UNKNOWN = "unknown";
+  private static final String JIGSAW = "minecraft:jigsaw";
 
   interface Sink {
     /**
@@ -53,6 +55,30 @@ final class ReferenceScanner {
         }
       } else {
         walk(tag, UNKNOWN, key, key.equals("entities"), sink);
+      }
+    }
+  }
+
+  /**
+   * Reports the pool that each jigsaw block of the template points to, as written (`namespace:path`). Jigsaw blocks
+   * are recognised by their block entity id or, if that is missing, by their block.
+   *
+   * @param root the root of a structure template.
+   */
+  static void scanJigsawPools(CompoundTag root, Consumer<String> sink) {
+    if (!(root.get("blocks") instanceof ListTag blocks)) {
+      return;
+    }
+    String[] palette = paletteNames(root);
+    for (Tag element : blocks) {
+      if (!(element instanceof CompoundTag block) || !block.contains("nbt", Tag.TAG_COMPOUND)) {
+        continue;
+      }
+      CompoundTag nbt = block.getCompound("nbt");
+      int state = block.getInt("state");
+      String id = nbt.contains("id", Tag.TAG_STRING) ? nbt.getString("id") : state >= 0 && state < palette.length ? palette[state] : UNKNOWN;
+      if (JIGSAW.equals(id) && nbt.contains("pool", Tag.TAG_STRING) && !nbt.getString("pool").isEmpty()) {
+        sink.accept(nbt.getString("pool"));
       }
     }
   }

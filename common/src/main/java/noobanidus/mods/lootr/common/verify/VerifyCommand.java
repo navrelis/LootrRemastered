@@ -8,9 +8,13 @@ import net.minecraft.network.chat.Component;
 import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.mixin.accessor.AccessorMixinCommandSourceStack;
 
+import java.util.List;
+import java.util.Optional;
+
 /**
  * `/lootr verify` and `/lootr verify rolls &lt;n&gt;`: starts a loot table verification (see {@link LootVerifier})
- * and tells the command source how it went.
+ * and tells the command source how it went. `/lootr verify structures` prints the structures with problem containers
+ * of the latest result.
  */
 public final class VerifyCommand {
   private static final String ROLLS_ARGUMENT = "count";
@@ -24,7 +28,17 @@ public final class VerifyCommand {
         .executes(c -> start(c.getSource(), 0))
         .then(Commands.literal("rolls")
             .then(Commands.argument(ROLLS_ARGUMENT, IntegerArgumentType.integer(0, VerifyOptions.MAX_ROLLS))
-                .executes(c -> start(c.getSource(), IntegerArgumentType.getInteger(c, ROLLS_ARGUMENT)))));
+                .executes(c -> start(c.getSource(), IntegerArgumentType.getInteger(c, ROLLS_ARGUMENT)))))
+        .then(Commands.literal("structures")
+            .executes(c -> structures(c.getSource())));
+  }
+
+  // Prints the structure section of the latest result; starts nothing.
+  private static int structures(CommandSourceStack source) {
+    Optional<VerifyResult> result = LootVerifier.lastResult();
+    List<Component> lines = StructuresText.lines(result);
+    lines.forEach(source::sendSystemMessage);
+    return result.isPresent() ? lines.size() : 0;
   }
 
   private static int start(CommandSourceStack source, int rolls) {

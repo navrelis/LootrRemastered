@@ -12,7 +12,9 @@ import net.minecraft.gametest.framework.BeforeBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -28,17 +30,21 @@ import noobanidus.mods.lootr.common.itemban.ItemBans;
 import noobanidus.mods.lootr.common.verify.LootVerifier;
 import noobanidus.mods.lootr.common.verify.LootVerifier.StartupPlan;
 import noobanidus.mods.lootr.common.verify.PackOrigin;
+import noobanidus.mods.lootr.common.verify.StructuresText;
 import noobanidus.mods.lootr.common.verify.VerifyOptions;
 import noobanidus.mods.lootr.common.verify.VerifyReport;
 import noobanidus.mods.lootr.common.verify.VerifyResult;
 import noobanidus.mods.lootr.common.verify.VerifyResult.AlwaysEmpty;
 import noobanidus.mods.lootr.common.verify.VerifyResult.BanInfo;
+import noobanidus.mods.lootr.common.verify.VerifyResult.ContainerProblem;
 import noobanidus.mods.lootr.common.verify.VerifyResult.IntegratedInfo;
 import noobanidus.mods.lootr.common.verify.VerifyResult.LoadFailure;
 import noobanidus.mods.lootr.common.verify.VerifyResult.OriginInfo;
 import noobanidus.mods.lootr.common.verify.VerifyResult.RollError;
 import noobanidus.mods.lootr.common.verify.VerifyResult.RollInfo;
 import noobanidus.mods.lootr.common.verify.VerifyResult.Scanned;
+import noobanidus.mods.lootr.common.verify.VerifyResult.StructureProblem;
+import noobanidus.mods.lootr.common.verify.VerifyResult.Structures;
 import noobanidus.mods.lootr.common.verify.VerifyResult.SummaryRow;
 import noobanidus.mods.lootr.gametest.platform.TestPlatforms;
 import org.apache.logging.log4j.LogManager;
@@ -86,6 +92,13 @@ import static noobanidus.mods.lootr.gametest.LootrTestSupport.EMPTY_STRUCTURE;
  * minecart with `minecraft:chests/abandoned_mineshaft` and a zombie with the death loot
  * `verify/missing_death_loot`.</li>
  * <li>`structure/verify/corrupt.nbt`: not a template at all.</li>
+ * <li>`worldgen/structure/verify_jigsaw.json` with the template pools `worldgen/template_pool/verify_jigsaw/` and the
+ * templates `structure/verify/jigsaw_*.nbt` (written by a throw-away program like `containers.nbt`): the start pool
+ * is a list element that holds a feature element and a list element with `jigsaw_start` (a chest with
+ * `verify/missing_in_jigsaw`, a jigsaw block to the pool `branch` and one to `minecraft:empty`); `branch` holds
+ * `jigsaw_branch` (chests with `verify/only_empty` and `verify/never_drops`, a jigsaw block back to the start pool, so
+ * that the walk has a cycle to end) and has the pool `fallback` as its fallback, which holds `jigsaw_fallback` (a
+ * chest with `verify/no_pools`). The structure never generates (it has no biomes).</li>
  * <li>`worldgen/processor_list/verify_loot.json`: appends `verify/missing_in_worldgen` and
  * `integrated/untyped_target`.</li>
  * </ul>
@@ -170,7 +183,7 @@ public class LootrVerifyTests {
       helper.assertTrue(read(files.latestJson()).equals(read(files.json())) && read(files.latestMarkdown()).equals(read(files.markdown())), "The latest reports are not copies");
 
       helper.assertTrue(report.get("format").getAsInt() == VerifyReport.JSON_FORMAT, "Unexpected format number");
-      helper.assertTrue(List.copyOf(report.keySet()).equals(List.of("format", "run", "scanned", "item_bans", "integrated_loot", "rolls", "summary", "origins", "findings")), "Unexpected top-level keys " + report.keySet());
+      helper.assertTrue(List.copyOf(report.keySet()).equals(List.of("format", "run", "scanned", "item_bans", "integrated_loot", "rolls", "summary", "origins", "findings", "structure_containers")), "Unexpected top-level keys " + report.keySet());
       JsonObject findings = report.getAsJsonObject("findings");
       helper.assertTrue(List.copyOf(findings.keySet()).equals(List.of("load_failure", "skipped_by_condition", "legacy_folder", "missing_reference", "banned_item", "cannot_produce", "roll_error", "always_empty_in_rolls", "no_integrated_loot", "integrated_loot_data", "internal_error")), "Unexpected finding classes " + findings.keySet());
       helper.assertTrue(report.equals(VerifyReport.json(sharedResult)), "The file is not the JSON form of the result");
@@ -195,7 +208,7 @@ public class LootrVerifyTests {
       helper.assertTrue(vanilla != null && vanilla.get("version").getAsString().equals("1.21.1") && strings(vanilla.getAsJsonArray("packs")).contains("vanilla"), "The vanilla pack is not attributed to Minecraft: " + vanilla);
 
       String markdown = read(files.markdown());
-      for (String heading : List.of("# Lootr loot table verification", "## Summary", "## A. Loot table files that were not loaded (`load_failure`)", "## B. Loot tables in the old folder (`legacy_folder`)", "## C. References to loot tables that do not exist (`missing_reference`)", "## D. Banned items in loot tables (`banned_item`, info)", "## E. Loot tables that cannot produce anything (`cannot_produce`)", "## F. Structure containers without integrated loot (`no_integrated_loot`)", "## G. Integrated loot data (`integrated_loot_data`)", "## Internal errors (`internal_error`)")) {
+      for (String heading : List.of("# Lootr loot table verification", "## Summary", "## A. Loot table files that were not loaded (`load_failure`)", "## B. Loot tables in the old folder (`legacy_folder`)", "## C. References to loot tables that do not exist (`missing_reference`)", "## D. Banned items in loot tables (`banned_item`, info)", "## E. Loot tables that cannot produce anything (`cannot_produce`)", "## F. Structure containers without integrated loot (`no_integrated_loot`)", "## G. Integrated loot data (`integrated_loot_data`)", "## H. Structures with problem containers (`structure_containers`)", "## Internal errors (`internal_error`)")) {
         helper.assertTrue(markdown.lines().anyMatch(heading::equals), "The Markdown report lacks the heading: " + heading);
       }
       helper.assertTrue(markdown.contains("- Complete data: `" + files.json().getFileName() + "`"), "The Markdown report does not name the JSON report");
@@ -297,6 +310,7 @@ public class LootrVerifyTests {
       assertReference(helper, missing, "verify/missing_component_loot", "loot_table", "container_loot_component", List.of(), table, false);
       // C2: structure templates.
       assertReference(helper, missing, "verify/missing_in_structure", "structure", "container", List.of("minecraft:chest"), template, false);
+      assertReference(helper, missing, "verify/missing_in_jigsaw", "structure", "container", List.of("minecraft:chest"), NAMESPACE + "verify/jigsaw_start", false);
       assertReference(helper, missing, "verify/missing_vault_loot", "structure", "vault", List.of("minecraft:vault"), template, false);
       assertReference(helper, missing, "verify/missing_spawner_loot", "structure", "trial_spawner", List.of("minecraft:trial_spawner"), template, false);
       assertReference(helper, missing, "verify/missing_equipment_loot", "structure", "equipment", List.of("minecraft:trial_spawner"), template, false);
@@ -306,11 +320,11 @@ public class LootrVerifyTests {
       assertReference(helper, missing, "verify/missing_in_worldgen", "worldgen", "processor_list", List.of("minecraft:barrel"), NAMESPACE + "processor_list/verify_loot", false);
 
       // Existing tables are not listed, and Minecraft's own data refers to nothing that is missing.
-      helper.assertTrue(missing.size() == 11, "Expected exactly the eleven fixtures but got " + missing);
+      helper.assertTrue(missing.size() == 12, "Expected exactly the twelve fixtures but got " + missing);
       for (JsonElement element : missing) {
         helper.assertTrue(element.getAsJsonObject().get("origin").getAsString().equals(TEST_ORIGIN), "A reference outside the test data is reported: " + element);
       }
-      helper.assertTrue(count(report, "missing_reference", "error") == 11, "The summary does not count them");
+      helper.assertTrue(count(report, "missing_reference", "error") == 12, "The summary does not count them");
 
       // A template that cannot be read is an internal error of its own and stops nothing.
       JsonArray errors = findings(report, "internal_error");
@@ -536,6 +550,141 @@ public class LootrVerifyTests {
     });
   }
 
+  // ----- H: structures with problem containers -----
+
+  // The jigsaw fixture is reached through a list element in a list element (with a feature element beside it), a
+  // jigsaw block, a cycle back to the start pool and a fallback pool; containers.nbt is in no pool.
+  @GameTest(template = EMPTY_STRUCTURE, batch = RUN_BATCH)
+  public void problemContainersAreAttributedToTheirStructures(GameTestHelper helper) {
+    withSharedRun(helper, report -> {
+      JsonObject section = report.getAsJsonObject("structure_containers");
+      JsonArray structures = section.getAsJsonArray("structures");
+
+      JsonObject jigsaw = one(structures, "structure", NAMESPACE + "verify_jigsaw");
+      helper.assertTrue(jigsaw.get("attributed").getAsBoolean() && jigsaw.get("missing").getAsInt() == 1 && jigsaw.get("empty").getAsInt() == 3, "Unexpected structure " + jigsaw);
+      helper.assertTrue(containers(jigsaw).equals(List.of(
+          NAMESPACE + "verify/jigsaw_branch|minecraft:chest|" + NAMESPACE + "verify/never_drops|always_empty_in_rolls|1",
+          NAMESPACE + "verify/jigsaw_branch|minecraft:chest|" + NAMESPACE + "verify/only_empty|cannot_produce|1",
+          NAMESPACE + "verify/jigsaw_fallback|minecraft:chest|" + NAMESPACE + "verify/no_pools|cannot_produce|1",
+          NAMESPACE + "verify/jigsaw_start|minecraft:chest|" + NAMESPACE + "verify/missing_in_jigsaw|missing_reference|1")), "Unexpected containers " + containers(jigsaw));
+
+      // The template in no pool is grouped by namespace and the first part of its path.
+      JsonObject group = one(structures, "structure", NAMESPACE + "verify");
+      helper.assertTrue(!group.get("attributed").getAsBoolean() && group.get("missing").getAsInt() == 3 && group.get("empty").getAsInt() == 5, "Unexpected group " + group);
+      String prefix = NAMESPACE + "verify/containers|";
+      helper.assertTrue(containers(group).equals(List.of(
+          prefix + "minecraft:barrel|" + NAMESPACE + "verify/missing_item_loot|missing_reference|1",
+          prefix + "minecraft:chest|" + NAMESPACE + "verify/missing_in_structure|missing_reference|1",
+          prefix + "minecraft:chest|" + NAMESPACE + "verify/never_drops|always_empty_in_rolls|1",
+          prefix + "minecraft:chest|" + NAMESPACE + "verify/no_pools|cannot_produce|1",
+          prefix + "minecraft:chest|" + NAMESPACE + "verify/only_banned|cannot_produce|1",
+          prefix + "minecraft:chest|" + NAMESPACE + "verify/only_dead_references|cannot_produce|1",
+          prefix + "minecraft:chest|" + NAMESPACE + "verify/only_empty|cannot_produce|1",
+          prefix + "minecraft:vault|" + NAMESPACE + "verify/missing_vault_loot|missing_reference|1")), "Unexpected containers " + containers(group));
+
+      // Nothing else: Minecraft's own structures have no problem containers, and the structures are ordered by id.
+      helper.assertTrue(structures.size() == 2 && section.get("structures_with_problems").getAsInt() == 2, "Unexpected structures " + structures);
+      helper.assertTrue(section.get("missing_tables").getAsInt() == 4 && section.get("empty_tables").getAsInt() == 5, "Unexpected figures " + section);
+      // Minecraft's jigsaw structures were followed through their pools and the jigsaw blocks of their templates.
+      helper.assertTrue(section.get("jigsaw_structures").getAsInt() >= 10 && section.get("attributed_templates").getAsInt() >= 200, "Too few jigsaw structures or templates attributed: " + section);
+      helper.assertTrue(report.getAsJsonObject("scanned").get("structure_templates").getAsInt() > section.get("attributed_templates").getAsInt(), "More templates attributed than scanned");
+    });
+  }
+
+  @GameTest(template = EMPTY_STRUCTURE, batch = RUN_BATCH)
+  public void structureSectionIsInTheSummaryAndTheMarkdownReport(GameTestHelper helper) {
+    withSharedRun(helper, report -> {
+      String line = "Structures with problem containers: 2 (4 container tables missing, 5 empty)";
+      List<String> summary = VerifyReport.summary(sharedResult);
+      helper.assertTrue(summary.contains(line + " \u2014 see " + sharedResult.files().markdown()), "The summary lacks the structure line: " + summary);
+      helper.assertTrue(FIRST_COMMAND.contains(line + " \u2014 see " + sharedResult.files().markdown()), "The command did not print the structure line: " + FIRST_COMMAND);
+
+      List<String> markdown = read(sharedResult.files().markdown()).lines().toList();
+      helper.assertTrue(markdown.contains(line + "."), "The Markdown report lacks the structure line");
+      helper.assertTrue(markdown.contains("### `" + NAMESPACE + "verify_jigsaw`: 1 missing, 3 empty") && markdown.contains("### `" + NAMESPACE + "verify` (unattributed): 3 missing, 5 empty"), "The Markdown report lacks the structures");
+      helper.assertTrue(markdown.contains("- `" + NAMESPACE + "verify/jigsaw_start`: `minecraft:chest` with `" + NAMESPACE + "verify/missing_in_jigsaw` (missing_reference)"), "The Markdown report lacks the container of the jigsaw structure");
+      helper.assertTrue(markdown.indexOf("### `" + NAMESPACE + "verify` (unattributed): 3 missing, 5 empty") < markdown.indexOf("### `" + NAMESPACE + "verify_jigsaw`: 1 missing, 3 empty"), "The structures are not ordered by id");
+
+      // The existing finding classes did not change: the section adds no row to the summary.
+      helper.assertTrue(sharedResult.summary().stream().noneMatch(row -> row.category().contains("structure")), "The structures are counted among the findings");
+    });
+  }
+
+  // `/lootr verify structures` prints the section of the latest result: the structures with most problem containers
+  // first, the structure ids that Minecraft knows are clickable.
+  @GameTest(template = EMPTY_STRUCTURE, batch = RUN_BATCH)
+  public void verifyStructuresCommandPrintsTheLatestResult(GameTestHelper helper) {
+    withSharedRun(helper, report -> {
+      MinecraftServer server = helper.getLevel().getServer();
+      List<Component> lines = new ArrayList<>();
+      runForComponents(server, "lootr verify structures", 2, lines);
+      helper.assertTrue(!LootVerifier.isRunning(), "The command started a run");
+      helper.assertTrue(key(lines.get(0)).equals("lootr.commands.verify.structures.header") && args(lines.get(0)).length == 3 && args(lines.get(0))[0].equals(2) && args(lines.get(0))[1].equals(4) && args(lines.get(0))[2].equals(5), "Unexpected header " + lines.get(0));
+      helper.assertTrue(key(lines.get(1)).equals("lootr.commands.verify.structures.entry_unattributed") && ((Component) args(lines.get(1))[0]).getString().equals(NAMESPACE + "verify") && args(lines.get(1))[1].equals(3) && args(lines.get(1))[2].equals(5), "Unexpected first entry " + lines.get(1));
+      helper.assertTrue(key(lines.get(2)).equals("lootr.commands.verify.structures.entry") && args(lines.get(2))[1].equals(1) && args(lines.get(2))[2].equals(3), "Unexpected second entry " + lines.get(2));
+      Component id = (Component) args(lines.get(2))[0];
+      ClickEvent click = id.getStyle().getClickEvent();
+      helper.assertTrue(id.getString().equals(NAMESPACE + "verify_jigsaw") && click != null && click.getAction() == ClickEvent.Action.RUN_COMMAND && click.getValue().equals("/lootr locate structure " + NAMESPACE + "verify_jigsaw"), "The structure is not clickable: " + id);
+      helper.assertTrue(lines.size() == 4 && key(lines.get(3)).equals("lootr.commands.verify.structures.report"), "Unexpected lines " + lines);
+      // Only operators may ask.
+      List<Component> denied = new ArrayList<>();
+      runForComponents(server, "lootr verify structures", 1, denied);
+      helper.assertTrue(denied.stream().noneMatch(line -> key(line).startsWith("lootr.commands.verify.structures.")), "A source without operator permission got the structures: " + denied);
+    });
+  }
+
+  // Without a result the command says so; with more than fifteen structures it lists the fifteen with most problems
+  // and counts the rest; unattributed groups are not clickable. Pure.
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void structuresTextListsTheTopStructures(GameTestHelper helper) {
+    List<Component> none = StructuresText.lines(Optional.empty());
+    helper.assertTrue(none.size() == 1 && key(none.getFirst()).equals("lootr.commands.verify.structures.none"), "Unexpected answer without a result: " + none);
+
+    helper.assertTrue(StructuresText.LIMIT == 15, "The limit changed");
+    List<StructureProblem> problems = new ArrayList<>();
+    for (int i = 0; i < 20; i++) {
+      // 1 to 20 problem containers; the group "zeta:group" has the most.
+      problems.add(new StructureProblem(String.format("zeta:structure_%02d", i), true, i % 3, i + 1 - i % 3, List.of()));
+    }
+    problems.add(new StructureProblem("zeta:group", false, 30, 0, List.of()));
+    List<Component> lines = StructuresText.lines(Optional.of(resultWith(new Structures(5, 100, problems))));
+    helper.assertTrue(args(lines.get(0))[0].equals(21), "Unexpected header " + lines.get(0));
+    // Header, 15 entries, the rest, no report file.
+    helper.assertTrue(lines.size() == 17, "Unexpected number of lines " + lines.size());
+    helper.assertTrue(key(lines.get(1)).equals("lootr.commands.verify.structures.entry_unattributed") && ((Component) args(lines.get(1))[0]).getStyle().getClickEvent() == null, "The unattributed group is not first or is clickable: " + lines.get(1));
+    for (int i = 0; i < 14; i++) {
+      Component line = lines.get(i + 2);
+      String expected = String.format("zeta:structure_%02d", 19 - i);
+      Component id = (Component) args(line)[0];
+      helper.assertTrue(key(line).equals("lootr.commands.verify.structures.entry") && id.getString().equals(expected) && id.getStyle().getClickEvent().getValue().equals("/lootr locate structure " + expected), "Unexpected entry " + i + ": " + line);
+    }
+    helper.assertTrue(key(lines.get(16)).equals("lootr.commands.verify.structures.more") && args(lines.get(16))[0].equals(6), "Unexpected last line " + lines.get(16));
+
+    List<Component> clean = StructuresText.lines(Optional.of(resultWith(Structures.NONE)));
+    helper.assertTrue(clean.size() == 2 && key(clean.get(1)).equals("lootr.commands.verify.structures.clean"), "Unexpected answer without problems: " + clean);
+    helper.succeed();
+  }
+
+  // The report files list every problem container of every structure; the cap of the other sections does not apply.
+  @GameTest(template = EMPTY_STRUCTURE, batch = BATCH)
+  public void structureSectionIsNotCapped(GameTestHelper helper) {
+    int many = VerifyReport.GROUP_LIMIT * 3;
+    List<ContainerProblem> containers = new ArrayList<>();
+    for (int i = 0; i < many; i++) {
+      containers.add(new ContainerProblem(String.format("zeta:template_%03d", i), "minecraft:chest", String.format("zeta:missing_%03d", i), VerifyResult.MISSING_REFERENCE, i == 0 ? 2 : 1));
+    }
+    VerifyResult result = resultWith(new Structures(1, many, List.of(new StructureProblem("zeta:big", true, many + 1, 0, containers))));
+    List<String> lines = VerifyReport.markdown(result).lines().toList();
+    helper.assertTrue(lines.stream().filter(line -> line.startsWith("- `zeta:template_")).count() == many && lines.stream().noneMatch(line -> line.contains("... and")), "The Markdown report is cut off");
+    helper.assertTrue(lines.contains("- `zeta:template_000`: 2 x `minecraft:chest` with `zeta:missing_000` (missing_reference)") && lines.contains("### `zeta:big`: " + (many + 1) + " missing, 0 empty"), "Unexpected Markdown lines");
+    helper.assertTrue(lines.contains("Structures with problem containers: 1 (" + many + " container tables missing, 0 empty)."), "The Markdown report lacks the structure line");
+    JsonObject section = VerifyReport.json(result).getAsJsonObject("structure_containers");
+    helper.assertTrue(section.getAsJsonArray("structures").get(0).getAsJsonObject().getAsJsonArray("containers").size() == many && section.get("missing_tables").getAsInt() == many, "The JSON report is not complete");
+    // Without a report file the summary line has no path.
+    helper.assertTrue(VerifyReport.summary(result).contains("Structures with problem containers: 1 (" + many + " container tables missing, 0 empty)"), "Unexpected summary " + VerifyReport.summary(result));
+    helper.succeed();
+  }
+
   // ----- determinism -----
 
   // Two runs over the same data report the same, entry for entry; only the header of the run differs.
@@ -560,7 +709,7 @@ public class LootrVerifyTests {
     helper.assertTrue(!second.files().json().equals(first.files().json()) && Files.isRegularFile(first.files().json()), "The second run overwrote the report of the first");
     JsonObject a = JsonParser.parseString(read(first.files().json())).getAsJsonObject();
     JsonObject b = JsonParser.parseString(read(second.files().json())).getAsJsonObject();
-    for (String key : List.of("scanned", "item_bans", "integrated_loot", "rolls", "summary", "origins", "findings")) {
+    for (String key : List.of("scanned", "item_bans", "integrated_loot", "rolls", "summary", "origins", "findings", "structure_containers")) {
       helper.assertTrue(a.get(key).equals(b.get(key)), "The two runs differ in '" + key + "'");
     }
     helper.assertTrue(read(second.files().latestJson()).equals(read(second.files().json())), "The latest report is not the one of the second run");
@@ -823,6 +972,32 @@ public class LootrVerifyTests {
     return new VerifyResult(Instant.parse("2026-01-02T03:04:05Z"), ZoneOffset.UTC, "2.0.0", "1.21.1", 1500L, List.of(), new Scanned(tables, tables, 0, 0, 0), new BanInfo(false, false, List.of()), new IntegratedInfo(true, 0, 0, 0, 0, 0, 0), new RollInfo(3, tables, tables * 3, 0, 0, 0, List.of()), origins, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), rollErrors, alwaysEmpty, List.of(), List.of(), List.of(), List.of(), null);
   }
 
+  private static VerifyResult resultWith(Structures structures) {
+    Map<String, OriginInfo> origins = new TreeMap<>();
+    origins.put("zeta", new OriginInfo(PackOrigin.mod("zeta", "Alpha Mod", "1.0"), List.of("zeta")));
+    return new VerifyResult(Instant.parse("2026-01-02T03:04:05Z"), ZoneOffset.UTC, "2.0.0", "1.21.1", 1500L, List.of(), new Scanned(0, 0, 1000, 0, 0), new BanInfo(false, false, List.of()), new IntegratedInfo(true, 0, 0, 0, 0, 0, 0), new RollInfo(3, 0, 0, 0, 0, 0, List.of()), origins, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), structures, List.of(), null);
+  }
+
+  /**
+   * The problem containers of a structure of the JSON report, as `template|holder|table|problem|count`.
+   */
+  private static List<String> containers(JsonObject structure) {
+    List<String> result = new ArrayList<>();
+    for (JsonElement element : structure.getAsJsonArray("containers")) {
+      JsonObject container = element.getAsJsonObject();
+      result.add(container.get("template").getAsString() + "|" + container.get("holder").getAsString() + "|" + container.get("table").getAsString() + "|" + container.get("problem").getAsString() + "|" + container.get("count").getAsInt());
+    }
+    return result;
+  }
+
+  private static String key(Component line) {
+    return line.getContents() instanceof TranslatableContents translatable ? translatable.getKey() : line.getString();
+  }
+
+  private static Object[] args(Component line) {
+    return ((TranslatableContents) line.getContents()).getArgs();
+  }
+
   /**
    * Collects the text of everything that is logged while it is attached to a logger.
    */
@@ -881,6 +1056,35 @@ public class LootrVerifyTests {
       @Override
       public void sendSystemMessage(Component component) {
         lines.add(component.getString());
+      }
+
+      @Override
+      public boolean acceptsSuccess() {
+        return true;
+      }
+
+      @Override
+      public boolean acceptsFailure() {
+        return true;
+      }
+
+      @Override
+      public boolean shouldInformAdmins() {
+        return false;
+      }
+    };
+    CommandSourceStack source = server.createCommandSourceStack().withSource(output).withPermission(permission);
+    server.getCommands().performPrefixedCommand(source, command);
+  }
+
+  /**
+   * Runs a command and collects the lines it prints as the components they are, also later ones.
+   */
+  private static void runForComponents(MinecraftServer server, String command, int permission, Collection<Component> lines) {
+    CommandSource output = new CommandSource() {
+      @Override
+      public void sendSystemMessage(Component component) {
+        lines.add(component);
       }
 
       @Override

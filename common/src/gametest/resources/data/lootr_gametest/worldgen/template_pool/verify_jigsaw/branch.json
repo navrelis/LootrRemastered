@@ -1,0 +1,14 @@
+{
+  "fallback": "lootr_gametest:verify_jigsaw/fallback",
+  "elements": [
+    {
+      "weight": 3,
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "lootr_gametest:verify/jigsaw_branch",
+        "processors": "minecraft:empty",
+        "projection": "rigid"
+      }
+    }
+  ]
+}

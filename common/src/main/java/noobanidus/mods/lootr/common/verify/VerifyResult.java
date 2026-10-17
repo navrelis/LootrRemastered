@@ -41,8 +41,16 @@ public record VerifyResult(
     List<ContainerTable> containerTables,
     List<Coverage> coverage,
     List<IntegratedLootIssue> integratedLootIssues,
+    Structures structures,
     List<InternalError> internalErrors,
     @Nullable ReportFiles files) {
+
+  /**
+   * The result of a run before the structure view existed: without it.
+   */
+  public VerifyResult(Instant startedAt, ZoneId zone, String modVersion, String gameVersion, long durationMillis, List<String> notes, Scanned scanned, BanInfo itemBans, IntegratedInfo integratedLoot, RollInfo rolls, Map<String, OriginInfo> origins, List<LoadFailure> loadFailures, List<SkippedByCondition> skippedByCondition, List<LegacyFolder> legacyFolders, List<MissingReference> missingReferences, List<BannedItems> bannedItems, List<CannotProduce> cannotProduce, List<RollError> rollErrors, List<AlwaysEmpty> alwaysEmptyInRolls, List<ContainerTable> containerTables, List<Coverage> coverage, List<IntegratedLootIssue> integratedLootIssues, List<InternalError> internalErrors, @Nullable ReportFiles files) {
+    this(startedAt, zone, modVersion, gameVersion, durationMillis, notes, scanned, itemBans, integratedLoot, rolls, origins, loadFailures, skippedByCondition, legacyFolders, missingReferences, bannedItems, cannotProduce, rollErrors, alwaysEmptyInRolls, containerTables, coverage, integratedLootIssues, Structures.NONE, internalErrors, files);
+  }
 
   public static final String ERROR = "error";
   public static final String WARNING = "warning";
@@ -228,6 +236,69 @@ public record VerifyResult(
   }
 
   /**
+   * One container (or several of the same kind) of a structure template whose loot table is a problem.
+   *
+   * @param template the id of the structure template.
+   * @param holder   the block entity or entity that holds the reference, e.g. `minecraft:chest`.
+   * @param table    the loot table as written.
+   * @param problem  {@link #MISSING_REFERENCE}, {@link #CANNOT_PRODUCE} or {@link #ALWAYS_EMPTY_IN_ROLLS}.
+   * @param count    how many such containers the template has.
+   */
+  public record ContainerProblem(String template, String holder, String table, String problem, int count) {
+  }
+
+  /**
+   * The problem containers of one structure.
+   *
+   * @param structure  the structure id; for a group that is not attributed to a structure its namespace and the first
+   *                   segment of the path of its templates.
+   * @param attributed true for a jigsaw structure that places the templates; false for templates that no jigsaw
+   *                   structure reaches.
+   * @param missing    containers whose loot table is missing.
+   * @param empty      containers whose loot table cannot produce items or produced nothing in the sample rolls.
+   * @param containers all of them, ordered by template, holder and table.
+   */
+  public record StructureProblem(String structure, boolean attributed, int missing, int empty, List<ContainerProblem> containers) {
+    /**
+     * @return the number of problem containers.
+     */
+    public int total() {
+      return missing + empty;
+    }
+  }
+
+  /**
+   * The structure view of the run.
+   *
+   * @param jigsawStructures    how many jigsaw structures were followed.
+   * @param attributedTemplates how many of the structure templates are placed by one of them.
+   * @param problems            the structures and groups with problem containers, ordered by id (structures before a
+   *                            group of the same id).
+   */
+  public record Structures(int jigsawStructures, int attributedTemplates, List<StructureProblem> problems) {
+    public static final Structures NONE = new Structures(0, 0, List.of());
+
+    /**
+     * @return how many different loot tables the problem containers use that are missing.
+     */
+    public int missingTables() {
+      return tables(MISSING_REFERENCE, true);
+    }
+
+    /**
+     * @return how many different loot tables the problem containers use that cannot produce or were empty in the
+     * sample rolls.
+     */
+    public int emptyTables() {
+      return tables(MISSING_REFERENCE, false);
+    }
+
+    private int tables(String problem, boolean equal) {
+      return (int) problems.stream().flatMap(structure -> structure.containers().stream()).filter(container -> container.problem().equals(problem) == equal).map(ContainerProblem::table).distinct().count();
+    }
+  }
+
+  /**
    * Something the verification itself could not do; the rest of the run is unaffected.
    *
    * @param stage what was being processed, e.g. a finding class or `structure_template`.
@@ -306,6 +377,6 @@ public record VerifyResult(
   }
 
   VerifyResult withFiles(@Nullable ReportFiles written, List<String> newNotes) {
-    return new VerifyResult(startedAt, zone, modVersion, gameVersion, durationMillis, List.copyOf(newNotes), scanned, itemBans, integratedLoot, rolls, origins, loadFailures, skippedByCondition, legacyFolders, missingReferences, bannedItems, cannotProduce, rollErrors, alwaysEmptyInRolls, containerTables, coverage, integratedLootIssues, internalErrors, written);
+    return new VerifyResult(startedAt, zone, modVersion, gameVersion, durationMillis, List.copyOf(newNotes), scanned, itemBans, integratedLoot, rolls, origins, loadFailures, skippedByCondition, legacyFolders, missingReferences, bannedItems, cannotProduce, rollErrors, alwaysEmptyInRolls, containerTables, coverage, integratedLootIssues, structures, internalErrors, written);
   }
 }

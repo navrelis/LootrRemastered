@@ -105,6 +105,13 @@ final class ReferenceIndex {
     if (SOURCE_WORLDGEN.equals(key.source())) {
       return true;
     }
-    return SOURCE_STRUCTURE.equals(key.source()) && (CONTAINER.equals(key.kind()) || ENTITY_CONTAINER.equals(key.kind()) || CONTAINER_ITEM.equals(key.kind()) || VAULT.equals(key.kind()));
+    return SOURCE_STRUCTURE.equals(key.source()) && isContainerKind(key.kind());
+  }
+
+  /**
+   * @return true if a reference of this kind in a structure template makes the table the loot of a container.
+   */
+  static boolean isContainerKind(String kind) {
+    return CONTAINER.equals(kind) || ENTITY_CONTAINER.equals(kind) || CONTAINER_ITEM.equals(kind) || VAULT.equals(kind);
   }
 }

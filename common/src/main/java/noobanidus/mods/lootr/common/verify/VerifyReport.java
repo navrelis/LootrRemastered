@@ -109,11 +109,21 @@ public final class VerifyReport {
     if (total.tables() > 0) {
       lines.add("Integrated loot: " + total.extended() + " of " + total.tables() + " structure container loot tables are extended, " + total.noRule() + " have no rule.");
     }
+    lines.add(structureLine(result, true));
     result.notes().forEach(lines::add);
     if (result.files() != null) {
       lines.add("Report: " + result.files().markdown());
     }
     return lines;
+  }
+
+  /**
+   * @return the line of the summary about the structures with problem containers, with the path of the report if there is one.
+   */
+  static String structureLine(VerifyResult result, boolean withPath) {
+    VerifyResult.Structures structures = result.structures();
+    return "Structures with problem containers: " + structures.problems().size() + " (" + structures.missingTables() + " container tables missing, " + structures.emptyTables() + " empty)"
+        + (!withPath || result.files() == null ? "" : " \u2014 see " + result.files().markdown());
   }
 
   private static Coverage totalCoverage(VerifyResult result) {
@@ -196,6 +206,9 @@ public final class VerifyReport {
     out.append("\n## G. Integrated loot data (`integrated_loot_data`)\n\n");
     out.append("What the integrated loot engine says about its own pool and rule files.\n");
     groups(out, result, result.integratedLootIssues(), IntegratedLootIssue::origin, VerifyReport::line);
+
+    out.append("\n## H. Structures with problem containers (`structure_containers`)\n\n");
+    structures(out, result);
 
     if (!result.internalErrors().isEmpty()) {
       out.append("\n## Internal errors (`internal_error`)\n\n");
@@ -289,6 +302,22 @@ public final class VerifyReport {
     if (!rolls.slowTables().isEmpty()) {
       out.append("\n#### Rolls cut short because one roll took very long\n\n");
       limited(out, rolls.slowTables(), VerifyReport::line);
+    }
+  }
+
+  private static void structures(StringBuilder out, VerifyResult result) {
+    VerifyResult.Structures structures = result.structures();
+    out.append("Containers in structure templates whose loot table is missing (`missing_reference`), cannot produce an item (`cannot_produce`) or produced nothing in any sample roll (`always_empty_in_rolls`), listed per structure with every template and holder.\n");
+    out.append("\nA template belongs to a structure if the structure's start pool leads to it through pool elements and the jigsaw blocks of the templates. ").append(structures.jigsawStructures()).append(" jigsaw structures were followed; ").append(structures.attributedTemplates()).append(" of ").append(result.scanned().templates()).append(" templates belong to one of them. Templates that no jigsaw structure reaches (the mansion, the stronghold, structures that place templates from code) are listed as unattributed, grouped by namespace and the first part of the template path. Containers in worldgen files (processor lists) are not part of this view.\n");
+    if (result.rolls().requested() == 0) {
+      out.append("\nNo loot table was rolled, so `always_empty_in_rolls` is not part of it. `/lootr verify rolls <n>` adds it.\n");
+    }
+    out.append("\n").append(structureLine(result, false)).append(".\n");
+    for (VerifyResult.StructureProblem problem : structures.problems()) {
+      out.append("\n### ").append(code(problem.structure())).append(problem.attributed() ? "" : " (unattributed)").append(": ").append(problem.missing()).append(" missing, ").append(problem.empty()).append(" empty\n\n");
+      for (VerifyResult.ContainerProblem container : problem.containers()) {
+        out.append("- ").append(line(container)).append('\n');
+      }
     }
   }
 
@@ -454,6 +483,10 @@ public final class VerifyReport {
       line.append(", e.g. ").append(code(table.examples().getFirst()));
     }
     return line.toString();
+  }
+
+  private static String line(VerifyResult.ContainerProblem container) {
+    return code(container.template()) + ": " + (container.count() == 1 ? "" : container.count() + " x ") + code(container.holder()) + " with " + code(container.table()) + " (" + container.problem() + ")";
   }
 
   private static String line(IntegratedLootIssue issue) {
@@ -672,6 +705,32 @@ public final class VerifyReport {
       return json;
     }));
     root.add("findings", findings);
+
+    VerifyResult.Structures structures = result.structures();
+    JsonObject section = new JsonObject();
+    section.addProperty("jigsaw_structures", structures.jigsawStructures());
+    section.addProperty("attributed_templates", structures.attributedTemplates());
+    section.addProperty("structures_with_problems", structures.problems().size());
+    section.addProperty("missing_tables", structures.missingTables());
+    section.addProperty("empty_tables", structures.emptyTables());
+    section.add("structures", array(structures.problems(), problem -> {
+      JsonObject json = new JsonObject();
+      json.addProperty("structure", problem.structure());
+      json.addProperty("attributed", problem.attributed());
+      json.addProperty("missing", problem.missing());
+      json.addProperty("empty", problem.empty());
+      json.add("containers", array(problem.containers(), container -> {
+        JsonObject entry = new JsonObject();
+        entry.addProperty("template", container.template());
+        entry.addProperty("holder", container.holder());
+        entry.addProperty("table", container.table());
+        entry.addProperty("problem", container.problem());
+        entry.addProperty("count", container.count());
+        return entry;
+      }));
+      return json;
+    }));
+    root.add("structure_containers", section);
     return root;
   }
 

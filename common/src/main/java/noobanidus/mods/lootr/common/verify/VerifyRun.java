@@ -1,7 +1,9 @@
 package noobanidus.mods.lootr.common.verify;
 
 import net.minecraft.SharedConstants;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.level.storage.loot.BuiltInLootTables;
 import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.api.PlatformAPI;
 import noobanidus.mods.lootr.common.integratedloot.IntegratedLootSnapshot;
@@ -12,12 +14,15 @@ import noobanidus.mods.lootr.common.verify.VerifyResult.RollError;
 import noobanidus.mods.lootr.common.verify.VerifyResult.RollInfo;
 import noobanidus.mods.lootr.common.verify.VerifyResult.Scanned;
 import noobanidus.mods.lootr.common.verify.VerifyResult.SlowRoll;
+import noobanidus.mods.lootr.common.verify.VerifyResult.Structures;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -206,6 +211,11 @@ final class VerifyRun {
 
   // ----- the result -----
 
+  private boolean isLoaded(String table) {
+    ResourceLocation id = ResourceLocation.tryParse(table);
+    return id != null && (context.tables().containsKey(id) || id.equals(BuiltInLootTables.EMPTY.location()));
+  }
+
   private VerifyResult assemble(VerifyScan.Data data, RollSampler sampler, Origins origins, InternalErrors errors) {
     List<RollError> rollErrors = new ArrayList<>();
     List<AlwaysEmpty> alwaysEmpty = new ArrayList<>();
@@ -233,6 +243,17 @@ final class VerifyRun {
       notes.add("The sample rolls stopped early: " + sampler.outcomes().size() + " of " + sampler.tables() + " loot tables were rolled.");
     }
 
+    Set<String> cannotProduce = new HashSet<>();
+    data.cannotProduce.forEach(finding -> cannotProduce.add(finding.table()));
+    Set<String> emptyInRolls = new HashSet<>();
+    alwaysEmpty.forEach(finding -> emptyInRolls.add(finding.table()));
+    Structures structures = StructureProblems.build(data.jigsawStructures, data.attributedTemplates, data.structureTemplates, data.templateContainers, table -> {
+      if (!isLoaded(table)) {
+        return VerifyResult.MISSING_REFERENCE;
+      }
+      return cannotProduce.contains(table) ? VerifyResult.CANNOT_PRODUCE : emptyInRolls.contains(table) ? VerifyResult.ALWAYS_EMPTY_IN_ROLLS : null;
+    });
+
     IntegratedLootSnapshot snapshot = context.snapshot();
     PackOrigin mod = PlatformAPI.describeMod(LootrAPI.MODID);
     return new VerifyResult(
@@ -258,6 +279,7 @@ final class VerifyRun {
         List.copyOf(data.containerTables),
         List.copyOf(data.coverage),
         List.copyOf(data.integratedLootIssues),
+        structures,
         errors.sorted(),
         null);
   }

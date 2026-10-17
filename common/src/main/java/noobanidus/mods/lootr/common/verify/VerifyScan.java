@@ -108,6 +108,12 @@ final class VerifyScan {
     int otherTypeContainerTables;
     int rollSkippedOtherType;
     int rollSkippedNoProducing;
+    int jigsawStructures;
+    int attributedTemplates;
+    // The templates each jigsaw structure places, by structure id.
+    Map<String, TreeSet<String>> structureTemplates = Map.of();
+    // Every container reference in a structure template, with how often it occurs; ordered.
+    final Map<StructureProblems.TemplateContainer, Integer> templateContainers = new TreeMap<>(Comparator.comparing(StructureProblems.TemplateContainer::template).thenComparing(StructureProblems.TemplateContainer::holder).thenComparing(StructureProblems.TemplateContainer::table));
     final List<LoadFailure> loadFailures = new ArrayList<>();
     final List<SkippedByCondition> skippedByCondition = new ArrayList<>();
     final List<LegacyFolder> legacyFolders = new ArrayList<>();
@@ -148,6 +154,10 @@ final class VerifyScan {
   private Map<ResourceLocation, Resource> tableFiles = Map.of();
   private final Map<String, ContainerUse> containerUses = new TreeMap<>();
   private final Set<String> notProducing = new HashSet<>();
+  // Filled while the templates are read, on several threads.
+  private final Set<String> templateIds = ConcurrentHashMap.newKeySet();
+  private final Map<String, Set<String>> jigsawPools = new ConcurrentHashMap<>();
+  private final Map<StructureProblems.TemplateContainer, AtomicInteger> containerCounts = new ConcurrentHashMap<>();
 
   VerifyScan(VerifyContext context, Workers workers, Origins origins, InternalErrors errors) {
     this.context = context;
@@ -166,6 +176,7 @@ final class VerifyScan {
     check(VerifyResult.LOAD_FAILURE, this::loadFailures);
     check(VerifyResult.LEGACY_FOLDER, this::legacyFolders);
     check("structure_templates", this::scanTemplates);
+    check("structure_attribution", this::attributeTemplates);
     check("worldgen_files", this::scanWorldgen);
     check(VerifyResult.MISSING_REFERENCE, this::missingReferences);
     check(VerifyResult.BANNED_ITEM, this::bannedItems);
@@ -363,11 +374,32 @@ final class VerifyScan {
           root = NbtIo.readCompressed(stream, NbtAccounter.unlimitedHeap());
         }
         String origin = origins.of(resource);
-        ReferenceScanner.scanTemplate(root, (kind, holder, table) -> index.add(ReferenceIndex.SOURCE_STRUCTURE, kind, TableAnalyzer.normaliseOrRaw(table), origin, id, holder));
+        ReferenceScanner.scanTemplate(root, (kind, holder, table) -> {
+          String normalised = TableAnalyzer.normaliseOrRaw(table);
+          index.add(ReferenceIndex.SOURCE_STRUCTURE, kind, normalised, origin, id, holder);
+          if (ReferenceIndex.isContainerKind(kind)) {
+            containerCounts.computeIfAbsent(new StructureProblems.TemplateContainer(id, holder, normalised), ignored -> new AtomicInteger()).incrementAndGet();
+          }
+        });
+        ReferenceScanner.scanJigsawPools(root, pool -> jigsawPools.computeIfAbsent(id, ignored -> ConcurrentHashMap.newKeySet()).add(pool));
+        templateIds.add(id);
       } catch (Exception | LinkageError | StackOverflowError e) {
         errors.add("structure_templates", id, e);
       }
     });
+  }
+
+  // Which templates the jigsaw structures place; needs the jigsaw blocks of the templates, so it follows scanTemplates.
+  private void attributeTemplates() {
+    workers.stage("Attributing structure templates to structures");
+    containerCounts.forEach((container, count) -> data.templateContainers.put(container, count.get()));
+    StructureAttribution.Result result = StructureAttribution.attribute(context.worldgen(), jigsawPools);
+    data.jigsawStructures = result.jigsawStructures();
+    data.structureTemplates = result.templatesByStructure();
+    Set<String> attributed = new HashSet<>();
+    result.templatesByStructure().values().forEach(attributed::addAll);
+    attributed.retainAll(templateIds);
+    data.attributedTemplates = attributed.size();
   }
 
   private void scanWorldgen() {

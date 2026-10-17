@@ -25,6 +25,8 @@ import java.util.TreeMap;
  * consistent data load even if data packs are reloaded while it works. Everything in here is immutable or safe to
  * read from any thread.
  *
+ * @param registries        the reloadable registries: loot tables.
+ * @param worldgen          the registries of the world: structures and template pools.
  * @param tables            the loaded loot tables by id, ordered by id.
  * @param integratedEnabled whether integrated loot is switched on in the configuration.
  */
@@ -34,6 +36,7 @@ record VerifyContext(
     Instant startedAt,
     ResourceManager resources,
     RegistryAccess registries,
+    RegistryAccess worldgen,
     SortedMap<ResourceLocation, LootTable> tables,
     IntegratedLootSnapshot snapshot,
     boolean integratedEnabled,
@@ -64,6 +67,6 @@ record VerifyContext(
       banSources.add(name);
     }
     Collections.sort(banSources);
-    return new VerifyContext(server, options, options.clock().instant(), server.getResourceManager(), registries, Collections.unmodifiableSortedMap(tables), IntegratedLoot.snapshot(), IntegratedLoot.getSettings().enabled(), ItemBans.isActive(), ItemBans.isFilteringAllLoot(), List.copyOf(banSources), server.getWorldData().enabledFeatures());
+    return new VerifyContext(server, options, options.clock().instant(), server.getResourceManager(), registries, server.registryAccess(), Collections.unmodifiableSortedMap(tables), IntegratedLoot.snapshot(), IntegratedLoot.getSettings().enabled(), ItemBans.isActive(), ItemBans.isFilteringAllLoot(), List.copyOf(banSources), server.getWorldData().enabledFeatures());
   }
 }

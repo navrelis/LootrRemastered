@@ -27,7 +27,7 @@ The jar also contains compatibility code for Sherds API and Create; neither is r
 
 ## Installation
 
-Put the jar `lootr-remastered-fabric-1.21.1-2.1.0.jar` into `mods/`. Default settings work without changes.
+Put the jar `lootr-remastered-fabric-1.21.1-2.2.0.jar` into `mods/`. Default settings work without changes.
 
 ### Switching from Lootr and Loot Integrations
 
@@ -49,6 +49,16 @@ This mod replaces the original Lootr and Loot Integrations with all its add-ons 
 - Optional shared inventories for teams. Break protection with several switches. Advancements and a statistic for looted containers.
 - Block, entity and structure tags decide what is converted and what is excluded (`data/lootr/tags/...`). Two optional data packs are built in: "Disable Lootr Advancements" and "Disable Lootr Converting Suspicious Blocks".
 
+### Personal cycle
+
+Lootr's refresh and decay work on a container for everybody at once. The personal cycle gives each player (or team) a schedule of their own, counted from their first opening of a container in real time: their loot is re-rolled at fixed intervals a set number of times, and afterwards the container decays for that player only. Other players keep their loot.
+
+- On by default: every 72 real hours, 3 re-rolls, then decay at 288 hours after the first opening. Server downtime counts. The schedule is worked out when the player opens the container, so changed settings apply to cycles that already run. Nothing runs in the background except a cheap visual update of the containers near players.
+- Lootr's own refresh and decay (sections `refresh` and `decay`) keep precedence: a container they handle is not subject to the personal cycle. Custom inventories, fake players, container types that cannot refresh, listed loot tables and dimensions, and containers in structures of the tag `lootr:personal_cycle_exempt` are not subject to it either.
+- To switch it off, set `personal_cycle.enabled` to false.
+- Settings in the `personal_cycle` section of `config/lootr.json`: `enabled` (true), `refresh_interval_hours` (72; at least 0.0167, one minute), `refresh_count` (3; 0 never re-rolls), `decay_after_last_refresh` (true; the container decays for the player one interval after the last re-roll), `excluded_loot_tables` (loot table ids or `namespace:*`), `excluded_dimensions` (dimension ids or `namespace:*`) and `overrides` (entries `<loot table id or namespace:*>=<hours>,<count>,<true|false>`; an exact id beats a namespace).
+- Commands: `/lootr cycle info`, `reset` and `expire`, see [Commands](#commands).
+
 ### Integrated loot (replaces Loot Integrations)
 
 Rules in data packs select loot tables, usually chests of structures; when such a table is rolled, one or two source tables from a pool are rolled as well and a few of their stacks are added to the result.
@@ -67,7 +77,7 @@ Rules in data packs select loot tables, usually chests of structures; when such 
 
 ### Loot table verification
 
-`/lootr verify` checks the loot tables of all data packs and the integrated loot data and writes a report; see [Verification report](#verification-report).
+`/lootr verify` checks the loot tables of all data packs and the integrated loot data and writes a report, including the structures whose containers have a missing or empty loot table; see [Verification report](#verification-report). `/lootr verify structures` prints that part again.
 
 ### Fixes and optimisation of the Lootr core
 
@@ -90,6 +100,7 @@ Everything starts with `/lootr` and needs permission level 2 (operator). "Stand 
 | `/lootr integrated stats` | Counts of usable pools, active and inactive rule files, extended and excluded tables, and totals since server start (extensions, source rolls, stacks added, failures). |
 | `/lootr verify` | Starts a loot table verification. One run at a time. |
 | `/lootr verify rolls <count>` | The same, and rolls every structure and `chests/` loot table `count` times (0 to 100). |
+| `/lootr verify structures` | Prints the structures with problem containers (loot table missing, empty) of the latest verification: the 15 with the most, each with its counts and a clickable structure id that runs `/lootr locate structure <id>`. Says to run `/lootr verify` first if there is no result yet. |
 | `/lootr check [<pos>]` | Looks at the container you aim at (block within 8 blocks, Lootr minecart or item frame) or at the block at `pos`, also an unconverted vanilla container with a loot table. Shows its kind, position, dimension, info UUID, loot table and seed, the status of the table (OK, MISSING, EMPTY or NONE, with 16 sample rolls for OK), whether integrated loot extends the table, the structures around it, how many players opened it and whether you have an inventory in it. |
 | `/lootr locate table <loot_table> [<radius>]` | Finds the containers (Lootr and unconverted vanilla ones) with that loot table within `radius` chunks (default 8, at most 32) around you: the 10 nearest, with a clickable position that teleports you, distance, kind and table status, then a total. Chunks that are not loaded are only read if they are already fully generated; none is generated. The work is spread over several ticks. |
 | `/lootr locate structure <structure or #tag> [<radius>]` | Finds the nearest structure like the vanilla `/locate` (default and largest radius 100 chunks), then, if its chunks are already generated (at most 64 are scanned), lists every container inside its bounding box with kind, loot table and status, and counts the ones with a missing or an empty table. |
@@ -99,6 +110,9 @@ Everything starts with `/lootr` and needs permission level 2 (operator). "Stand 
 | `/lootr clear <player>` | Deletes the stored inventories of a player (by name from the profile cache). |
 | `/lootr cclear <entities>` | The same for the players the selector matches; with team loot, for their team. |
 | `/lootr refresh`, `/lootr decay` | Sets the container you stand on to refresh or decay, with the configured delay. |
+| `/lootr cycle info [<player>]` | Shows the personal cycle of a player (default: yourself) in the container you look at or stand on: when it started, re-rolls used of the configured count, whether it has decayed, and when the next re-roll or the decay is due; or why the container is not subject to the cycle. |
+| `/lootr cycle reset <player>` | Removes the player's inventory and cycle in that container; the next opening rolls fresh loot and starts a new cycle. |
+| `/lootr cycle expire <player>` | Moves the start of the player's cycle back by one interval, so that the next re-roll or the decay is due at the next opening. |
 | `/lootr cull` | Deletes, in the background, saved data files of containers that have no stored inventory, no opener and were never opened. Prints how many. |
 | `/lootr custom-chest <pos>` | Turns a container that holds items but has no loot table into a Lootr container with those items as the reference. |
 | `/lootr custom-area <from> <to>` | The same for every container in the box. |
@@ -127,6 +141,7 @@ Everything starts with `/lootr` and needs permission level 2 (operator). "Stand 
 | `client` | `vanilla_textures`, particles (`unopened_particles`, `refresh_particles`, `decay_particles`), `display_toasts`, `notification_delay`, `disable_notifications` |
 | `team` | `team_loot`, `pinned_team_resolver` |
 | `item_bans` | `respect_item_obliterator` (true), `filter_all_loot` (true; false = only Lootr containers), `scrub_saved_inventories` (true), `extra_banned_items` (empty list) |
+| `personal_cycle` | `enabled` (true), `refresh_interval_hours` (72), `refresh_count` (3), `decay_after_last_refresh` (true), `excluded_loot_tables`, `excluded_dimensions`, `overrides`; see [Personal cycle](#personal-cycle) |
 | `integrated_loot` | `enabled` (true), `modded_item_weight` (2; 1 to 1000), `skip_existing_items` (true), `skip_map_items` (true), `max_extra_stacks` (4; 0 to 9), `debug_log` (false), `imported_loot_integrations_config` |
 
 `modded_item_weight` matters when a source roll yields more candidate stacks than the rule asks for: candidates from other mods are drawn with this weight, vanilla items with weight 1.
@@ -199,6 +214,7 @@ The report has a header (versions, duration, number of scanned files, item ban s
 | E | `cannot_produce` | Tables that cannot yield anything judged from their entries (no pools, only empty entries, only banned items, only references to such tables). Warning if a structure container uses the table. With rolls: `roll_error` (a roll threw an exception) and `always_empty_in_rolls` (no roll produced an item; warning if a structure container uses the table, info otherwise). |
 | F | `no_integrated_loot` | For each loot table that a structure container uses: `extended`, `excluded`, `rule_problem` (a rule matches but has no effect), `not_applicable` (only pots or brushable blocks, no room for extra stacks), `no_rule`. A coverage table per origin. |
 | G | `integrated_loot_data` | Pool and rule file problems: malformed files, inactive rule files (missing mod or namespace), patterns that match no table, dropped sources, pools without usable source, matches of tables of another type. |
+| H | `structure_containers` | Structures with problem containers: per structure, every container of a structure template whose loot table is missing, cannot produce or was empty in every sample roll, with template, holder and table (the files list them all). Not a finding class of its own: the counts of the classes above are unchanged. Templates are attributed to jigsaw structures through the start pool, pool elements (single, legacy, list; features are ignored) and the jigsaw blocks of the templates; templates no jigsaw structure reaches (mansion, stronghold, structures of mods that place templates in code) are listed as unattributed, grouped by namespace and the first part of the template path. Containers in worldgen files (processor lists) are not part of it. |
 | - | `internal_error` | Something the verification itself could not do; the rest is unaffected. |
 
 Findings have the severity error, warning or info. Rolls use the world spawn as the position, no integrated loot and no explorer maps; tables whose type needs more than a position are not rolled and are counted in the report; a table whose roll takes very long is cut short and listed. If at least 20 tables were sampled and at least 90 % of them were empty in every roll, the report and the summary say so at the top: the tables are not at fault then, something empties the loot rolls (usually mods that change loot rolls and get in each other's way).
@@ -209,7 +225,7 @@ Java 21 and the Gradle wrapper are enough; Gradle downloads the rest. Each loade
 
 ```
 cd fabric
-.\gradlew.bat build          # jar: fabric/build/libs/lootr-remastered-fabric-1.21.1-2.1.0.jar
+.\gradlew.bat build          # jar: fabric/build/libs/lootr-remastered-fabric-1.21.1-2.2.0.jar
 .\gradlew.bat runGametest    # Fabric game tests on a headless server
 ```
 

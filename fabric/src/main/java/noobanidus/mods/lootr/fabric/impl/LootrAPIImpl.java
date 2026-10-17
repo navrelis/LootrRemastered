@@ -14,6 +14,7 @@ import noobanidus.mods.lootr.common.api.client.ClientTextureType;
 import noobanidus.mods.lootr.common.api.config.SaveMode;
 import noobanidus.mods.lootr.common.api.config.SyncedConfig;
 import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
+import noobanidus.mods.lootr.common.cycle.CycleSettings;
 import noobanidus.mods.lootr.common.impl.DefaultLootrAPIImpl;
 import noobanidus.mods.lootr.fabric.config.ConfigManager;
 import noobanidus.mods.lootr.fabric.event.LootrEventsInit;
@@ -369,5 +370,10 @@ public class LootrAPIImpl extends DefaultLootrAPIImpl {
   @Override
   public boolean shouldDisplayToasts() {
     return ConfigManager.get().client.display_toasts;
+  }
+
+  @Override
+  public CycleSettings getPersonalCycleSettings() {
+    return ConfigManager.getPersonalCycleSettings();
   }
 }

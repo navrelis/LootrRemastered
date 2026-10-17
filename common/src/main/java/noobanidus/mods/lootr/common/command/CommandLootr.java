@@ -683,6 +683,7 @@ public class CommandLootr {
         }))));
     builder.then(IntegratedLootCommand.build());
     builder.then(VerifyCommand.build());
+    builder.then(noobanidus.mods.lootr.common.cycle.CycleCommand.build());
     return builder;
   }
 

@@ -14,6 +14,7 @@ import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import noobanidus.mods.lootr.common.api.LootrAPI;
+import noobanidus.mods.lootr.common.cycle.PersonalCycle;
 import noobanidus.mods.lootr.common.itemban.ItemBans;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -56,7 +57,8 @@ public class DefaultLootFiller implements LootFiller {
       LootrAPI.LOG.error("Unable to fill loot container in {} at {} as the loot table is null and the provider is not a reference inventory!", level.dimension()
           .location(), pos);
     } else {
-      long seed = LootrAPI.getLootSeed(provider.getInfoLootSeed());
+      // A re-roll of the personal cycle must not repeat the loot when the seed is not randomised.
+      long seed = PersonalCycle.rerollSeed(provider.getInfoLootSeed(), LootrAPI.getLootSeed(provider.getInfoLootSeed()));
       LootTable loottable = level.getServer().reloadableRegistries().getLootTable(lootTable);
 
       if (loottable == LootTable.EMPTY) {

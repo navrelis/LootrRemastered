@@ -17,10 +17,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
 import noobanidus.mods.lootr.common.api.LootrAPI;
 import noobanidus.mods.lootr.common.api.data.*;
+import noobanidus.mods.lootr.common.cycle.CycleRecord;
+import noobanidus.mods.lootr.common.cycle.PersonalCycle;
 import noobanidus.mods.lootr.common.itemban.ItemBans;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,8 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
   private final Map<UUID, LootrInventory> inventories = new HashMap<>();
   private final Set<UUID> openers = new ObjectLinkedOpenHashSet<>();
   private final Set<UUID> actualOpeners = new ObjectLinkedOpenHashSet<>();
+  // The personal cycles, by the same key as `inventories`. Saved as `cycles` only when there are any.
+  private final Map<UUID, CycleRecord> cycles = new HashMap<>();
 
   protected LootrSavedData(ILootrInfo info) {
     this(info, false);
@@ -84,6 +89,16 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
     }
     if (compound.contains("hasBeenOpened")) {
       data.hasBeenOpened = compound.getBoolean("hasBeenOpened");
+    }
+    if (compound.contains("cycles", Tag.TAG_LIST)) {
+      ListTag cycles = compound.getList("cycles", Tag.TAG_COMPOUND);
+      for (int i = 0; i < cycles.size(); i++) {
+        CompoundTag cycleTag = cycles.getCompound(i);
+        CycleRecord record = CycleRecord.load(cycleTag);
+        if (record != null) {
+          data.cycles.put(cycleTag.getUUID("id"), record);
+        }
+      }
     }
     return data;
   }
@@ -177,6 +192,10 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
   @Override
   public LootrInventory createInventory(ILootrInfoProvider provider, ServerPlayer player, LootFiller filler) {
     if (provider.canPlayerOpen(player)) {
+      // A container that decayed for this player under the personal cycle hands out no new loot, whatever asks.
+      if (PersonalCycle.isInventoryWithheld(this, provider, LootrAPI.resolveServerPlayerTeam(player))) {
+        return null;
+      }
       LootrInventory result = new LootrInventory(this, provider.buildInitialInventory());
       if (!LootrAPI.isFakePlayer(player)) {
         filler.unpackLootTable(provider, player, result);
@@ -202,6 +221,9 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
     if (player == null) {
       // Loot fillers need the player (luck, advancements). Nothing is created or stored for an offline player.
       LootrAPI.LOG.debug("Not creating an inventory in Lootr container {} for {}: the player is not online.", getInfoUUID(), playerId);
+      return null;
+    }
+    if (PersonalCycle.isInventoryWithheld(this, provider, playerId)) {
       return null;
     }
     LootrInventory result = new LootrInventory(this, provider.buildInitialInventory());
@@ -239,6 +261,14 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
     compound.put("actualOpeners", actualOpeners);
 
     compound.putBoolean("hasBeenOpened", hasBeenOpened);
+
+    if (!cycles.isEmpty()) {
+      ListTag cycleList = new ListTag();
+      for (Map.Entry<UUID, CycleRecord> entry : cycles.entrySet()) {
+        cycleList.add(entry.getValue().save(entry.getKey()));
+      }
+      compound.put("cycles", cycleList);
+    }
 
     return compound;
   }
@@ -318,8 +348,9 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
 
   // Openers are content as well: without any inventory they still say who sees the container as opened and
   // who was counted for it (statistic, advancements, `lootr:loot_count`). A refresh leaves the actual openers.
+  // A personal cycle record is content too: a decayed player has no inventory any more, but must stay decayed.
   public boolean canBeCulled() {
-    if (!inventories.isEmpty() || !openers.isEmpty() || !actualOpeners.isEmpty()) {
+    if (!inventories.isEmpty() || !openers.isEmpty() || !actualOpeners.isEmpty() || !cycles.isEmpty()) {
       return false;
     }
 
@@ -331,8 +362,10 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
     return false;
   }
 
+  // Also drops the personal cycle of that player: the next opening rolls fresh loot and starts a new cycle.
   @Override
   public boolean clearInventories(UUID id) {
+    boolean hadCycle = cycles.remove(id) != null;
     LootrInventory inventory = inventories.get(id);
     if (inventory != null) {
       closeOpenMenus(inventory);
@@ -341,8 +374,44 @@ public class LootrSavedData extends SavedData implements ILootrSavedData {
       setDirty();
       return true;
     }
+    if (hadCycle) {
+      removeOpener(id);
+      setDirty();
+      return true;
+    }
 
     return false;
+  }
+
+  // Removes the stored inventory of that player only (openers and cycle stay), closing a menu that shows it. Used
+  // by the personal cycle to re-roll or to decay the loot of one player.
+  public boolean discardInventory(UUID id) {
+    LootrInventory inventory = inventories.get(id);
+    if (inventory == null) {
+      return false;
+    }
+    closeOpenMenus(inventory);
+    inventories.remove(id);
+    setDirty();
+    return true;
+  }
+
+  @Nullable
+  public CycleRecord getCycle(UUID id) {
+    return cycles.get(id);
+  }
+
+  public void putCycle(UUID id, CycleRecord record) {
+    cycles.put(id, record);
+    setDirty();
+  }
+
+  public boolean hasCycles() {
+    return !cycles.isEmpty();
+  }
+
+  public Map<UUID, CycleRecord> getCycles() {
+    return Collections.unmodifiableMap(cycles);
   }
 
   @Override

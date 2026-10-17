@@ -103,6 +103,8 @@ public class LootrTags {
 
     public static TagKey<net.minecraft.world.level.levelgen.structure.Structure> REFRESH_STRUCTURES = tag("refresh");
     public static TagKey<net.minecraft.world.level.levelgen.structure.Structure> DECAY_STRUCTURES = tag("decay");
+    // Containers in these structures keep their loot for good: no personal cycle (refresh and decay per player).
+    public static TagKey<net.minecraft.world.level.levelgen.structure.Structure> PERSONAL_CYCLE_EXEMPT = tag("personal_cycle_exempt");
 
     static TagKey<net.minecraft.world.level.levelgen.structure.Structure> tag(String name) {
       return TagKey.create(Registries.STRUCTURE, LootrAPI.rl(name));

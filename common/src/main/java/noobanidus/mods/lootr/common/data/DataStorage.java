@@ -341,7 +341,8 @@ public class DataStorage {
         ((AccessorMixinDimensionDataStorage) data).getCache().remove(file);
         continue;
       }
-      if (!lootrSavedData.hasBeenOpened()) {
+      // A refreshed container can still hold personal cycle records, which are cleared as well.
+      if (!lootrSavedData.hasBeenOpened() && !lootrSavedData.hasCycles()) {
         continue;
       }
 

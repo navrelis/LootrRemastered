@@ -15,6 +15,7 @@ import noobanidus.mods.lootr.common.api.client.ClientTextureType;
 import noobanidus.mods.lootr.common.api.config.SaveMode;
 import noobanidus.mods.lootr.common.api.config.SyncedConfig;
 import noobanidus.mods.lootr.common.api.data.ILootrInfoProvider;
+import noobanidus.mods.lootr.common.cycle.CycleSettings;
 import noobanidus.mods.lootr.common.impl.DefaultLootrAPIImpl;
 import noobanidus.mods.lootr.neoforge.config.ConfigManager;
 import org.jetbrains.annotations.Nullable;
@@ -83,7 +84,8 @@ public class LootrAPIImpl extends DefaultLootrAPIImpl {
 
   @Override
   public boolean isNotificationsEnabled() {
-    return !ConfigManager.DISABLE_NOTIFICATIONS.get();
+    // The option is client configuration, which a dedicated server does not load; there it counts as enabled.
+    return !ConfigManager.CLIENT_CONFIG.isLoaded() || !ConfigManager.DISABLE_NOTIFICATIONS.get();
   }
 
   @Override
@@ -370,5 +372,10 @@ public class LootrAPIImpl extends DefaultLootrAPIImpl {
   @Override
   public boolean shouldDisplayToasts() {
     return ConfigManager.TOASTS.get();
+  }
+
+  @Override
+  public CycleSettings getPersonalCycleSettings() {
+    return ConfigManager.getPersonalCycleSettings();
   }
 }

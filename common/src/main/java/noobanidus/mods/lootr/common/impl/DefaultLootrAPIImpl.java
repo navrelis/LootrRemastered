@@ -48,6 +48,7 @@ import noobanidus.mods.lootr.common.api.processor.ILootrEntityProcessor;
 import noobanidus.mods.lootr.common.api.registry.LootrRegistry;
 import noobanidus.mods.lootr.common.api.team.ITeamResolver;
 import noobanidus.mods.lootr.common.client.ClientHooks;
+import noobanidus.mods.lootr.common.cycle.PersonalCycle;
 import noobanidus.mods.lootr.common.data.DataStorage;
 import noobanidus.mods.lootr.common.integration.sherdsapi.SherdsIntegration;
 import org.jetbrains.annotations.Nullable;
@@ -64,6 +65,10 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
       return;
     }
     if (!provider.canBeMarkedUnopened()) {
+      return;
+    }
+    // A container that decayed for the player under the personal cycle keeps looking opened.
+    if (PersonalCycle.isDecayedFor(provider, player)) {
       return;
     }
     if (provider.removeVisualOpener(player)) {
@@ -105,6 +110,14 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
       PlatformAPI.alertContainerStatus(player, ContainerStatus.REFRESH, ContainerStatus.Type.COMPLETE, -1);
 
       shouldUpdate = true;
+    }
+    // The personal cycle (per-player re-roll and decay by real time); it leaves containers with the above alone.
+    PersonalCycle.Opening cycle = PersonalCycle.beforeOpen(provider, player);
+    if (cycle.refused()) {
+      if (shouldUpdate) {
+        provider.performUpdate(player);
+      }
+      return;
     }
     // Everything after this records the opening (decay and refresh start, advancements, statistic, openers).
     // It must not happen for an opening that fails, so the menu is opened first.
@@ -148,6 +161,7 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
       provider.performOpen(player);
       shouldUpdate = true;
     }
+    PersonalCycle.afterOpen(cycle, provider, player);
 
     if (shouldUpdate) {
       provider.performUpdate(player);
@@ -164,6 +178,8 @@ public abstract class DefaultLootrAPIImpl implements ILootrAPI {
     if (provider.getInfoLevel() == null || provider.getInfoLevel().isClientSide()) {
       return;
     }
+
+    PersonalCycle.tick(provider);
 
     // 0 is possible (`tickDelay` 0 and no random offset) and means "every tick"; it must not be divided by.
     int interval = LootrAPI.getTickDelay() + provider.getRandomOffset();

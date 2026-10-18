@@ -314,6 +314,12 @@ public class ConfigManager extends ConfigManagerBase implements ConfigData {
     return get().client.vanilla_textures;
   }
 
+  // Kept for mods compiled against Lootr that still call it, e.g. The Aether's chest mimic renderer; Lootr Remastered only ships the new textures.
+  @Deprecated
+  public static boolean isNewTextures() {
+    return true;
+  }
+
   public static SyncedConfig getConfigForSync () {
     return get().configSync();
   }

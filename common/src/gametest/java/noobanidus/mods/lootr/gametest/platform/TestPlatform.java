@@ -81,4 +81,10 @@ public interface TestPlatform {
    * that does not reads the entry as unknown data. (Every loader skips files by the condition form of its own API only.)
    */
   boolean skipsFilesByFabricConditions();
+
+  /**
+   * What the loader's `ConfigManager.isNewTextures()` returns. The method was removed with the old textures and is kept
+   * for mods that were built against older Lootr versions and still call it (The Aether's chest mimic renderer).
+   */
+  boolean legacyIsNewTextures();
 }

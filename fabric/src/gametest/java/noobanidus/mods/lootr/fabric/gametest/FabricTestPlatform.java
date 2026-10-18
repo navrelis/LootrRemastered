@@ -114,4 +114,10 @@ public class FabricTestPlatform implements TestPlatform, ModInitializer {
   public boolean skipsFilesByFabricConditions() {
     return true;
   }
+
+  @Override
+  @SuppressWarnings("deprecation")
+  public boolean legacyIsNewTextures() {
+    return ConfigManager.isNewTextures();
+  }
 }

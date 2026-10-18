@@ -145,6 +145,13 @@ public class LootrDefectFixTests {
     helper.succeed();
   }
 
+  // The Aether's chest mimic renderer calls `ConfigManager.isNewTextures()`, which an earlier Lootr had; without it the game crashes with a NoSuchMethodError.
+  @GameTest(template = EMPTY_STRUCTURE)
+  public void removedNewTexturesOptionStillAnswersTrue(GameTestHelper helper) {
+    helper.assertTrue(TestPlatforms.get().legacyIsNewTextures(), "ConfigManager.isNewTextures() does not report the new textures");
+    helper.succeed();
+  }
+
   // ----- 8. Refreshing the sections without a server -----
 
   @GameTest(template = EMPTY_STRUCTURE)

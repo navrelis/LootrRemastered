@@ -27,7 +27,7 @@ The jar also contains compatibility code for Sherds API and Create; neither is r
 
 ## Installation
 
-Put the jar `lootr-remastered-fabric-1.21.1-2.2.0.jar` into `mods/`. Default settings work without changes.
+Put the jar `lootr-remastered-fabric-1.21.1-2.2.1.jar` into `mods/`. Default settings work without changes.
 
 ### Switching from Lootr and Loot Integrations
 
@@ -225,7 +225,7 @@ Java 21 and the Gradle wrapper are enough; Gradle downloads the rest. Each loade
 
 ```
 cd fabric
-.\gradlew.bat build          # jar: fabric/build/libs/lootr-remastered-fabric-1.21.1-2.2.0.jar
+.\gradlew.bat build          # jar: fabric/build/libs/lootr-remastered-fabric-1.21.1-2.2.1.jar
 .\gradlew.bat runGametest    # Fabric game tests on a headless server
 ```
 

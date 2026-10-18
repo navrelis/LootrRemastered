@@ -138,4 +138,10 @@ public class NeoForgeTestPlatform implements TestPlatform {
   public boolean skipsFilesByFabricConditions() {
     return false;
   }
+
+  @Override
+  @SuppressWarnings("deprecation")
+  public boolean legacyIsNewTextures() {
+    return ConfigManager.isNewTextures();
+  }
 }

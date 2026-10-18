@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Licence check of a built Lootr Remastered jar.  Python 3 standard library plus git.
 
-    python docs/tools/check_jar.py fabric/build/libs/lootr-remastered-fabric-1.21.1-2.2.0.jar [upstream-revision]
+    python docs/tools/check_jar.py fabric/build/libs/lootr-remastered-fabric-1.21.1-2.2.1.jar [upstream-revision]
 
 Run it from the repository root.  The upstream revision defaults to b62e382a (Lootr 1.11.38.128),
 the commit this project started from.  The script reads the jar and git; it changes nothing.

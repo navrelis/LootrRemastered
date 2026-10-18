@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.1
+
+- Fixed: a crash when The Aether's chest mimic is drawn (for example in the creative inventory) with Lootr installed (`NoSuchMethodError` for `ConfigManager.isNewTextures()`). The method is back, for mods that were built against older Lootr versions; it always answers that the new textures are used, as Lootr Remastered only ships those.
+
 ## 2.2.0
 
 - New commands `/lootr check [<pos>]`, `/lootr locate table <loot_table> [<radius>]` and `/lootr locate structure <structure> [<radius>]`: say what is the matter with a container (loot table missing, empty or fine, integrated loot, structure, openers) and find containers by loot table or inside a structure. Chunks that are not loaded are read only if they are already generated; none is generated.
